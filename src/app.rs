@@ -1,9 +1,14 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use ratatui::{Terminal, backend::Backend};
+use std::sync::mpsc as std_chan;
 
 use crate::{
     config::Config,
-    model::{connection::Connection, musing::MusingState},
+    event_handler::{self, Event},
+    model::{
+        connection::Connection,
+        musing::{MusingState, MusingStateDelta},
+    },
 };
 
 // move these things to model/...
@@ -37,7 +42,7 @@ impl App {
         let mut connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
-        let musing_state = connection.state()?;
+        let musing_state = MusingState::default();
 
         Ok(Self {
             connection,
@@ -48,8 +53,26 @@ impl App {
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        self.musing_state = self.connection.state()?;
-        println!("{:?}", self.musing_state);
+        let (tx_event, rx_event) = std_chan::channel();
+        event_handler::run(tx_event);
+        loop {
+            match rx_event.recv() {
+                Ok(event) => match event {
+                    Event::Keypress(ev) => {
+                        // let update = update::translate_key_event(ev);
+                        // update::update(self, update);
+                    }
+                    Event::Refresh => {
+                        if let Ok(delta_json) = self.connection.state_delta()
+                            && let Ok(delta) = MusingStateDelta::try_from(delta_json)
+                        {
+                            // update::udpate_musing_state(
+                        }
+                    }
+                },
+                Err(_) => bail!("event handler crashed"),
+            }
+        }
 
         Ok(())
     }

@@ -13,6 +13,7 @@ use std::io::stdout;
 mod app;
 mod config;
 mod constants;
+mod event_handler;
 mod panic;
 
 mod model;
