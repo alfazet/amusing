@@ -26,24 +26,24 @@ pub struct MusingSong {
 
 #[derive(Debug, Default)]
 pub struct MusingState {
-    playback_state: PlaybackState,
-    playback_mode: PlaybackMode,
-    volume: u64,
-    speed: u64,
-    gapless: bool,
-    devices: Vec<String>,
-    queue: Vec<MusingSong>,
+    pub playback_state: PlaybackState,
+    pub playback_mode: PlaybackMode,
+    pub volume: u64,
+    pub speed: u64,
+    pub gapless: bool,
+    pub devices: Vec<String>,
+    pub queue: Vec<MusingSong>,
 }
 
 #[derive(Debug, Default)]
 pub struct MusingStateDelta {
-    playback_state: Option<PlaybackState>,
-    playback_mode: Option<PlaybackMode>,
-    volume: Option<u64>,
-    speed: Option<u64>,
-    gapless: Option<bool>,
-    devices: Option<Vec<String>>,
-    queue: Option<Vec<MusingSong>>,
+    pub playback_state: Option<PlaybackState>,
+    pub playback_mode: Option<PlaybackMode>,
+    pub volume: Option<u64>,
+    pub speed: Option<u64>,
+    pub gapless: Option<bool>,
+    pub devices: Option<Vec<String>>,
+    pub queue: Option<Vec<MusingSong>>,
 }
 
 impl TryFrom<&Value> for PlaybackState {

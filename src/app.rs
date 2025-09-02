@@ -9,18 +9,18 @@ use crate::{
         connection::Connection,
         musing::{MusingState, MusingStateDelta},
     },
+    update, view,
 };
 
-// move these things to model/...
 #[derive(Debug, Default)]
-enum AppState {
+pub enum AppState {
     #[default]
     Running,
     Done,
 }
 
 #[derive(Debug, Default)]
-enum Screen {
+pub enum Screen {
     #[default]
     Queue,
     Library,
@@ -30,10 +30,10 @@ enum Screen {
 
 #[derive(Debug)]
 pub struct App {
-    connection: Connection,
-    app_state: AppState,
-    screen: Screen,
-    musing_state: MusingState,
+    pub connection: Connection,
+    pub app_state: AppState,
+    pub screen: Screen,
+    pub musing_state: MusingState,
 }
 
 impl App {
@@ -66,11 +66,15 @@ impl App {
                         if let Ok(delta_json) = self.connection.state_delta()
                             && let Ok(delta) = MusingStateDelta::try_from(delta_json)
                         {
-                            // update::udpate_musing_state(
+                            update::update_musing_state(&mut self.musing_state, delta);
                         }
                     }
                 },
                 Err(_) => bail!("event handler crashed"),
+            }
+            terminal.draw(|frame| view::render(&self, frame))?;
+            if let AppState::Done = self.app_state {
+                break;
             }
         }
 

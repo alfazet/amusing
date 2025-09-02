@@ -15,6 +15,8 @@ mod config;
 mod constants;
 mod event_handler;
 mod panic;
+mod update;
+mod view;
 
 mod model;
 
@@ -25,13 +27,13 @@ use crate::{
 
 fn run(config: Config) -> Result<()> {
     let mut app = App::try_new(config)?;
-    // enable_raw_mode()?;
-    // stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let res = app.run(&mut terminal);
-    // disable_raw_mode()?;
-    // stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+    stdout().execute(LeaveAlternateScreen)?;
 
     res
 }
