@@ -8,8 +8,8 @@ use std::{
 
 use crate::panic;
 
-const REFRESH_TIMEOUT: u64 = 500;
-const POLL_TIMEOUT: u64 = 32;
+const REFRESH_TIMEOUT: u64 = 125; // in ms
+const POLL_TIMEOUT: u64 = 25;
 
 pub enum Event {
     Keypress(event::KeyEvent),
@@ -26,7 +26,6 @@ pub fn run(tx_event: std_chan::Sender<Event>) {
         loop {
             if event::poll(poll_timer).expect("event poll failed")
                 && let TermEvent::Key(ev) = event::read().expect("event read failed")
-                && ev.kind == event::KeyEventKind::Release
             {
                 let _ = tx_event.send(Event::Keypress(ev));
             }

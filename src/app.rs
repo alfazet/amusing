@@ -22,6 +22,7 @@ pub enum AppState {
 #[derive(Debug, Default)]
 pub enum Screen {
     #[default]
+    Cover,
     Queue,
     Library,
     // Playlists,
@@ -34,21 +35,24 @@ pub struct App {
     pub app_state: AppState,
     pub screen: Screen,
     pub musing_state: MusingState,
+    pub status_msg: Option<String>,
 }
 
 impl App {
     pub fn try_new(config: Config) -> Result<Self> {
         let Config { port } = config;
-        let mut connection = Connection::try_new(port)?;
+        let connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
+        let status_msg = None;
 
         Ok(Self {
             connection,
             app_state,
             screen,
             musing_state,
+            status_msg,
         })
     }
 
@@ -59,11 +63,13 @@ impl App {
             match rx_event.recv() {
                 Ok(event) => match event {
                     Event::Keypress(ev) => {
-                        // let update = update::translate_key_event(ev);
-                        // update::update(self, update);
+                        if let Some(msg) = update::translate_key_event(self, ev) {
+                            update::update_app(self, msg);
+                        }
                     }
                     Event::Refresh => {
-                        if let Ok(delta_json) = self.connection.state_delta()
+                        if let Ok(mut delta_json) = self.connection.state_delta()
+                            && let Ok(_) = self.connection.add_metadata(&mut delta_json)
                             && let Ok(delta) = MusingStateDelta::try_from(delta_json)
                         {
                             update::update_musing_state(&mut self.musing_state, delta);
@@ -72,7 +78,7 @@ impl App {
                 },
                 Err(_) => bail!("event handler crashed"),
             }
-            terminal.draw(|frame| view::render(&self, frame))?;
+            terminal.draw(|frame| view::render(self, frame))?;
             if let AppState::Done = self.app_state {
                 break;
             }

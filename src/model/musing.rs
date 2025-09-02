@@ -1,8 +1,12 @@
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value};
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+    path::PathBuf,
+};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum PlaybackState {
     #[default]
     Stopped,
@@ -10,7 +14,7 @@ pub enum PlaybackState {
     Paused,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum PlaybackMode {
     #[default]
     Single,
@@ -22,6 +26,7 @@ pub enum PlaybackMode {
 pub struct MusingSong {
     id: u64,
     path: PathBuf,
+    metadata: HashMap<String, String>,
 }
 
 #[derive(Debug, Default)]
@@ -46,6 +51,19 @@ pub struct MusingStateDelta {
     pub queue: Option<Vec<MusingSong>>,
 }
 
+impl Display for PlaybackState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            PlaybackState::Stopped => "",
+            PlaybackState::Playing => "playing",
+            PlaybackState::Paused => "paused",
+        }
+        .to_string();
+
+        write!(f, "{}", s)
+    }
+}
+
 impl TryFrom<&Value> for PlaybackState {
     type Error = anyhow::Error;
 
@@ -57,6 +75,19 @@ impl TryFrom<&Value> for PlaybackState {
             Some(other) => bail!("unexpected playback state `{}`", other),
             None => bail!("expected a string"),
         }
+    }
+}
+
+impl Display for PlaybackMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            PlaybackMode::Single => "single",
+            PlaybackMode::Sequential => "sequential",
+            PlaybackMode::Random => "random",
+        }
+        .to_string();
+
+        write!(f, "{}", s)
     }
 }
 
@@ -88,10 +119,12 @@ impl TryFrom<&Value> for MusingSong {
                     .get("path")
                     .and_then(|x| x.as_str().map(|s| s.to_string()))
                     .ok_or(anyhow!("expected key `path`"))?;
+                // let metadata: object.get("metadata").and_then(...)
 
                 Ok(MusingSong {
                     id,
                     path: path.into(),
+                    metadata: HashMap::new(),
                 })
             }
             None => bail!("expected a JSON object"),
