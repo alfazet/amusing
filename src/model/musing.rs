@@ -22,7 +22,7 @@ pub enum PlaybackMode {
     Random,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct MusingSong {
     id: u64,
     path: PathBuf,
@@ -38,6 +38,7 @@ pub struct MusingState {
     pub gapless: bool,
     pub devices: Vec<String>,
     pub queue: Vec<MusingSong>,
+    pub current: Option<MusingSong>,
 }
 
 #[derive(Debug, Default)]
@@ -49,12 +50,13 @@ pub struct MusingStateDelta {
     pub gapless: Option<bool>,
     pub devices: Option<Vec<String>>,
     pub queue: Option<Vec<MusingSong>>,
+    pub current: Option<MusingSong>,
 }
 
 impl Display for PlaybackState {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let s = match self {
-            PlaybackState::Stopped => "",
+            PlaybackState::Stopped => "stopped",
             PlaybackState::Playing => "playing",
             PlaybackState::Paused => "paused",
         }
@@ -119,16 +121,37 @@ impl TryFrom<&Value> for MusingSong {
                     .get("path")
                     .and_then(|x| x.as_str().map(|s| s.to_string()))
                     .ok_or(anyhow!("expected key `path`"))?;
-                // let metadata: object.get("metadata").and_then(...)
+                let metadata: HashMap<_, _> = object
+                    .get("metadata")
+                    .and_then(|x| x.as_object())
+                    .map(|x| {
+                        x.iter()
+                            .filter(|(_, v)| v.is_string())
+                            .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
                 Ok(MusingSong {
                     id,
                     path: path.into(),
-                    metadata: HashMap::new(),
+                    metadata,
                 })
             }
             None => bail!("expected a JSON object"),
         }
+    }
+}
+
+impl MusingSong {
+    pub fn get(&self, tag: impl AsRef<str>) -> Option<&str> {
+        self.metadata.get(tag.as_ref()).map(|s| s.as_str())
+    }
+}
+
+impl MusingState {
+    pub fn is_stopped(&self) -> bool {
+        matches!(self.playback_state, PlaybackState::Stopped)
     }
 }
 
@@ -167,6 +190,9 @@ impl TryFrom<Value> for MusingStateDelta {
                     .collect::<Option<_>>()
             })
         });
+        let current = object
+            .remove("current")
+            .and_then(|x| MusingSong::try_from(&x).ok());
 
         Ok(Self {
             playback_state,
@@ -176,6 +202,7 @@ impl TryFrom<Value> for MusingStateDelta {
             gapless,
             devices,
             queue,
+            current,
         })
     }
 }

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value, json};
 use std::{
     io::{BufReader, prelude::*},
@@ -58,14 +58,30 @@ impl Connection {
 
     pub fn metadata(&mut self, paths: Vec<String>, tags: Option<Vec<String>>) -> Result<Value> {
         let mut request = Map::new();
-        request.insert("paths".into(), paths.into());
+        request.insert("kind".into(), "metadata".into());
+        request.insert("paths".into(), paths.clone().into());
         let _ = match tags {
             Some(tags) => request.insert("tags".into(), tags.into()),
             None => request.insert("all_tags".into(), true.into()),
         };
         self.write_msg(Value::from(request))?;
+        let mut res = self.read_msg()?;
 
-        self.read_msg()
+        if let Some(obj) = res.as_object_mut()
+            && let Some(status) = obj.remove("status")
+            && status == "err"
+            && let Some(reason) = obj.remove("reason")
+        {
+            bail!(reason);
+        }
+
+        if let Some(obj) = res.as_object_mut()
+            && let Some(metadata) = obj.remove("metadata")
+        {
+            Ok(metadata)
+        } else {
+            bail!("expected a JSON object with key `metadata`");
+        }
     }
 
     pub fn add_metadata(&mut self, delta: &mut Value) -> Result<()> {
@@ -75,10 +91,26 @@ impl Connection {
             for song in songs.iter_mut() {
                 if let Some(song_obj) = song.as_object_mut()
                     && let Some(path) = song_obj.get("path").and_then(|s| s.as_str())
+                    && let Some(metadata) = self
+                        .metadata(vec![path.into()], None)
+                        .unwrap_or_default()
+                        .as_array()
                 {
-                    song_obj.insert("metadata".into(), self.metadata(vec![path.into()], None)?);
+                    song_obj.insert("metadata".into(), metadata[0].clone());
                 }
             }
+        }
+        if let Some(current) = delta
+            .as_object_mut()
+            .and_then(|obj| obj.get_mut("current"))
+            .and_then(|cur| cur.as_object_mut())
+            && let Some(path) = current.get("path").and_then(|s| s.as_str())
+            && let Some(metadata) = self
+                .metadata(vec![path.into()], None)
+                .unwrap_or_default()
+                .as_array()
+        {
+            current.insert("metadata".into(), metadata[0].clone());
         }
 
         Ok(())

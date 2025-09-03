@@ -39,6 +39,8 @@ fn run(config: Config) -> Result<()> {
 }
 
 fn main() {
+    let log_file = dirs::cache_dir().unwrap().join("amusing.log");
+    let _ = simple_logging::log_to_file(log_file, log::LevelFilter::Error);
     panic::register_backtrace_panic_handler();
     let cli_opts = CliOptions::parse();
     let config = match Config::try_from_file(cli_opts.config_file.as_deref())

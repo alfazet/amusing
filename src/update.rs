@@ -108,4 +108,7 @@ pub fn update_musing_state(state: &mut MusingState, delta: MusingStateDelta) {
     if let Some(queue) = delta.queue {
         state.queue = queue;
     }
+    if delta.current.is_some() {
+        state.current = delta.current;
+    }
 }

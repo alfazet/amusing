@@ -16,19 +16,53 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
     let volume = app.musing_state.volume;
     let speed = app.musing_state.speed;
     let mode = app.musing_state.playback_mode;
-    let state = app.musing_state.playback_state;
+    let is_stopped = app.musing_state.is_stopped();
     let gapless = app.musing_state.gapless;
+    let current_title = app
+        .musing_state
+        .current
+        .as_ref()
+        .and_then(|song| song.get("tracktitle"))
+        .unwrap_or("<unknown title>");
+    let current_artist = app
+        .musing_state
+        .current
+        .as_ref()
+        .and_then(|song| song.get("artist"))
+        .unwrap_or("<unknown artist>");
+    let current_album = app
+        .musing_state
+        .current
+        .as_ref()
+        .and_then(|song| song.get("album"))
+        .unwrap_or("<unknown album>");
 
+    // TODO: center two rows of the middle column relatively to each other
+    // so that <title> is in the middle of <artist> - <album>
     let header = Table::default()
         .rows(vec![
             Row::new(vec![
                 Cell::from(Line::from(format!("[{}]", mode)).left_aligned()),
-                Cell::from(Line::from("#####").centered()),
+                Cell::from(
+                    Line::from(if is_stopped {
+                        "[musing stopped]"
+                    } else {
+                        current_title
+                    })
+                    .centered(),
+                ),
                 Cell::from(Line::from(format!("volume: {}", volume)).right_aligned()),
             ]),
             Row::new(vec![
                 Cell::from(Line::from(if gapless { "[gapless]" } else { "" }).left_aligned()),
-                Cell::from(Line::from("#########").centered()),
+                Cell::from(
+                    Line::from(if is_stopped {
+                        "".into()
+                    } else {
+                        format!("{} - {}", current_artist, current_album)
+                    })
+                    .centered(),
+                ),
                 Cell::from(Line::from(format!("speed: {}", speed)).right_aligned()),
             ]),
         ])
