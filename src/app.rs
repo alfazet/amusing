@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use ratatui::{Terminal, backend::Backend};
-use std::sync::mpsc as std_chan;
+use std::{collections::HashMap, sync::mpsc as std_chan};
 
 use crate::{
     config::Config,
@@ -35,7 +35,8 @@ pub struct App {
     pub app_state: AppState,
     pub screen: Screen,
     pub musing_state: MusingState,
-    pub status_msg: Option<String>,
+    pub metadata: Vec<HashMap<String, String>>,
+    // pub status_msg: Option<String>,
 }
 
 impl App {
@@ -45,14 +46,16 @@ impl App {
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
-        let status_msg = None;
+        let metadata = Vec::new();
+        // let status_msg = None;
 
         Ok(Self {
             connection,
             app_state,
             screen,
             musing_state,
-            status_msg,
+            metadata,
+            // status_msg,
         })
     }
 
@@ -68,11 +71,10 @@ impl App {
                         }
                     }
                     Event::Refresh => {
-                        if let Ok(mut delta_json) = self.connection.state_delta()
-                            && let Ok(_) = self.connection.add_metadata(&mut delta_json)
+                        if let Ok(delta_json) = self.connection.state_delta()
                             && let Ok(delta) = MusingStateDelta::try_from(delta_json)
                         {
-                            update::update_musing_state(&mut self.musing_state, delta);
+                            update::main_update(self, delta);
                         }
                     }
                 },

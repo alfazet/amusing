@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value, json};
 use std::{
+    collections::HashMap,
     io::{BufReader, prelude::*},
     net::{Shutdown, TcpStream},
 };
@@ -56,10 +57,14 @@ impl Connection {
             .map_err(|e| e.into())
     }
 
-    pub fn metadata(&mut self, paths: Vec<String>, tags: Option<Vec<String>>) -> Result<Value> {
+    pub fn metadata(
+        &mut self,
+        paths: &[&str],
+        tags: Option<&[&str]>,
+    ) -> Result<Vec<HashMap<String, String>>> {
         let mut request = Map::new();
         request.insert("kind".into(), "metadata".into());
-        request.insert("paths".into(), paths.clone().into());
+        request.insert("paths".into(), paths.into());
         let _ = match tags {
             Some(tags) => request.insert("tags".into(), tags.into()),
             None => request.insert("all_tags".into(), true.into()),
@@ -76,44 +81,26 @@ impl Connection {
         }
 
         if let Some(obj) = res.as_object_mut()
-            && let Some(metadata) = obj.remove("metadata")
+            && let Some(mut metadata) = obj.remove("metadata")
+            && let Some(metadata) = metadata.as_array_mut()
         {
+            let metadata: Vec<_> = metadata
+                .iter()
+                .filter_map(|v| v.as_object())
+                .map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| {
+                            v.is_string()
+                                .then(|| (k.clone(), v.as_str().unwrap().to_string()))
+                        })
+                        .collect::<HashMap<_, _>>()
+                })
+                .collect();
+
             Ok(metadata)
         } else {
-            bail!("expected a JSON object with key `metadata`");
+            bail!("expected a JSON object with key `metadata` and an array value");
         }
-    }
-
-    pub fn add_metadata(&mut self, delta: &mut Value) -> Result<()> {
-        if let Some(queue) = delta.as_object_mut().and_then(|obj| obj.get_mut("queue"))
-            && let Some(songs) = queue.as_array_mut()
-        {
-            for song in songs.iter_mut() {
-                if let Some(song_obj) = song.as_object_mut()
-                    && let Some(path) = song_obj.get("path").and_then(|s| s.as_str())
-                    && let Some(metadata) = self
-                        .metadata(vec![path.into()], None)
-                        .unwrap_or_default()
-                        .as_array()
-                {
-                    song_obj.insert("metadata".into(), metadata[0].clone());
-                }
-            }
-        }
-        if let Some(current) = delta
-            .as_object_mut()
-            .and_then(|obj| obj.get_mut("current"))
-            .and_then(|cur| cur.as_object_mut())
-            && let Some(path) = current.get("path").and_then(|s| s.as_str())
-            && let Some(metadata) = self
-                .metadata(vec![path.into()], None)
-                .unwrap_or_default()
-                .as_array()
-        {
-            current.insert("metadata".into(), metadata[0].clone());
-        }
-
-        Ok(())
     }
 
     pub fn state_delta(&mut self) -> Result<Value> {

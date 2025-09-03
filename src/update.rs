@@ -50,8 +50,8 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('N') => Some(Message::Update(Update::Next)),
         Key::Char('g') => Some(Message::Update(Update::Gapless)),
         Key::Char(' ') => Some(Message::Update(Update::Toggle)),
-        Key::Char('P') => Some(Message::Update(Update::Pause)),
-        Key::Char('R') => Some(Message::Update(Update::Resume)),
+        Key::Char('p') => Some(Message::Update(Update::Pause)),
+        Key::Char('o') => Some(Message::Update(Update::Resume)),
         Key::Char('S') => Some(Message::Update(Update::Stop)),
         Key::Char('[') => Some(Message::Update(Update::Seek(-5))),
         Key::Char(']') => Some(Message::Update(Update::Seek(5))),
@@ -81,34 +81,47 @@ pub fn update_app(app: &mut App, msg: Message) {
         },
     };
 
-    if let Err(e) = res {
-        app.status_msg = Some(e.to_string());
+    // if let Err(e) = res {
+    //     app.status_msg = Some(e.to_string());
+    // }
+}
+
+pub fn main_update(app: &mut App, delta: MusingStateDelta) {
+    if let Some(playback_state) = delta.playback_state {
+        app.musing_state.playback_state = playback_state;
+    }
+    if let Some(playback_mode) = delta.playback_mode {
+        app.musing_state.playback_mode = playback_mode;
+    }
+    if let Some(volume) = delta.volume {
+        app.musing_state.volume = volume;
+    }
+    if let Some(speed) = delta.speed {
+        app.musing_state.speed = speed;
+    }
+    if let Some(gapless) = delta.gapless {
+        app.musing_state.gapless = gapless;
+    }
+    if let Some(devices) = delta.devices {
+        app.musing_state.devices = devices;
+    }
+    if let Some(queue) = delta.queue {
+        app.musing_state.queue = queue;
+        update_metadata(app);
+    }
+    if delta.current.is_some() {
+        app.musing_state.current = delta.current;
     }
 }
 
-pub fn update_musing_state(state: &mut MusingState, delta: MusingStateDelta) {
-    if let Some(playback_state) = delta.playback_state {
-        state.playback_state = playback_state;
-    }
-    if let Some(playback_mode) = delta.playback_mode {
-        state.playback_mode = playback_mode;
-    }
-    if let Some(volume) = delta.volume {
-        state.volume = volume;
-    }
-    if let Some(speed) = delta.speed {
-        state.speed = speed;
-    }
-    if let Some(gapless) = delta.gapless {
-        state.gapless = gapless;
-    }
-    if let Some(devices) = delta.devices {
-        state.devices = devices;
-    }
-    if let Some(queue) = delta.queue {
-        state.queue = queue;
-    }
-    if delta.current.is_some() {
-        state.current = delta.current;
+pub fn update_metadata(app: &mut App) {
+    let paths: Vec<_> = app
+        .musing_state
+        .queue
+        .iter()
+        .map(|song| song.path.as_str())
+        .collect();
+    if let Ok(metadata) = app.connection.metadata(&paths, None) {
+        app.metadata = metadata;
     }
 }
