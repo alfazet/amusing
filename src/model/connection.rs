@@ -143,6 +143,16 @@ impl Connection {
         self.read_msg().map(|_| ())
     }
 
+    pub fn play(&mut self, id: u64) -> Result<()> {
+        let request = json!({
+            "kind": "play",
+            "id": id,
+        });
+        self.write_msg(request)?;
+
+        self.read_msg().map(|_| ())
+    }
+
     // a convenience function for sending requests that don't have neither
     // any additional arguments nor a meaningful positive response
     pub fn no_response(&mut self, kind: &str) -> Result<()> {

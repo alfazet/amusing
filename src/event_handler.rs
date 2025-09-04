@@ -26,6 +26,7 @@ pub fn run(tx_event: std_chan::Sender<Event>) {
         loop {
             if event::poll(poll_timer).expect("event poll failed")
                 && let TermEvent::Key(ev) = event::read().expect("event read failed")
+                && let event::KeyEventKind::Press = ev.kind
             {
                 let _ = tx_event.send(Event::Keypress(ev));
             }

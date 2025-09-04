@@ -8,6 +8,7 @@ use crate::{
     model::{
         connection::Connection,
         musing::{MusingState, MusingStateDelta},
+        queue::QueueState,
     },
     update, view,
 };
@@ -35,6 +36,7 @@ pub struct App {
     pub app_state: AppState,
     pub screen: Screen,
     pub musing_state: MusingState,
+    pub queue_state: QueueState,
     pub metadata: Vec<HashMap<String, String>>,
     // pub status_msg: Option<String>,
 }
@@ -46,6 +48,7 @@ impl App {
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
+        let queue_state = QueueState::default();
         let metadata = Vec::new();
         // let status_msg = None;
 
@@ -54,6 +57,7 @@ impl App {
             app_state,
             screen,
             musing_state,
+            queue_state,
             metadata,
             // status_msg,
         })

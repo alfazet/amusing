@@ -18,9 +18,11 @@ pub enum Update {
     Resume,
     Toggle,
     Stop,
+    Play,
     Seek(i64),
     Speed(i16),
     Volume(i8),
+    Scroll(i32),
 }
 
 #[derive(Debug)]
@@ -35,6 +37,17 @@ macro_rules! enum_stringify {
         let s = format!("{:?}", $variant);
         s.split("::").last().unwrap().to_lowercase()
     }};
+}
+
+fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> {
+    use event::KeyCode as Key;
+
+    match ev.code {
+        Key::Char('j') | Key::Down => Some(Message::Update(Update::Scroll(1))),
+        Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
+        Key::Enter => Some(Message::Update(Update::Play)),
+        _ => None,
+    }
 }
 
 pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
@@ -59,7 +72,12 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('>') => Some(Message::Update(Update::Speed(5))),
         Key::Char('-') => Some(Message::Update(Update::Volume(-5))),
         Key::Char('=') => Some(Message::Update(Update::Volume(5))),
-        _ => None,
+        Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
+        Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
+        _ => match app.screen {
+            Screen::Queue => translate_key_event_queue(app, ev),
+            _ => None,
+        },
     }
 }
 
@@ -74,6 +92,14 @@ pub fn update_app(app: &mut App, msg: Message) {
             Ok(())
         }
         Message::Update(update) => match update {
+            Update::Scroll(delta) => {
+                app.queue_state.scroll(delta);
+                Ok(())
+            }
+            Update::Play => match app.queue_state.state.selected() {
+                Some(i) => app.connection.play(app.musing_state.queue[i].id),
+                None => Ok(()),
+            },
             Update::Seek(seconds) => app.connection.seek(seconds),
             Update::Speed(speed) => app.connection.speed(speed),
             Update::Volume(delta) => app.connection.volume(delta),
@@ -125,6 +151,7 @@ pub fn update_metadata(app: &mut App) {
         .map(|song| song.path.as_str())
         .collect();
     if let Ok(metadata) = app.connection.metadata(&paths, None) {
+        // TODO: add duration here (make a relevant endpoint in musing)
         app.metadata = metadata;
     }
 }

@@ -1,17 +1,20 @@
 use anyhow::Result;
+use itertools::izip;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
-    style::{Color, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     symbols::{border, line},
     text::{Line, Span, Text},
-    widgets::{Block, Cell, LineGauge, Paragraph, Row, Table, Widget},
+    widgets::{
+        Block, Borders, Cell, LineGauge, Padding, Paragraph, Row, Table, TableState, Widget,
+    },
 };
 
 use crate::app::{App, AppState, Screen};
 
-fn render_cover_screen(app: &App, frame: &mut Frame) {
+fn render_cover_screen(app: &mut App, frame: &mut Frame) {
     // TODO: album cover goes here at some point (render with chafa)
     let volume = app.musing_state.volume;
     let speed = app.musing_state.speed;
@@ -53,14 +56,7 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
                     Line::from(format!("[{} {}]", mode, if gapless { 'G' } else { 'g' }))
                         .left_aligned(),
                 ),
-                Cell::from(
-                    Line::from(if is_stopped {
-                        "[musing stopped]"
-                    } else {
-                        current_title
-                    })
-                    .centered(),
-                ),
+                Cell::from(Line::from(if is_stopped { "" } else { current_title }).centered()),
                 Cell::from(Line::from(format!("Volume: {}", volume)).right_aligned()),
             ]),
             Row::new(vec![
@@ -98,11 +94,42 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
     frame.render_widget(progress_bar, layout[2]);
 }
 
-fn render_queue_screen(app: &App, frame: &mut Frame) {}
+fn render_queue_screen(app: &mut App, frame: &mut Frame) {
+    let queue = &app.musing_state.queue;
+    let titles = app.metadata.iter().map(|m| {
+        m.get("tracktitle")
+            .map(|s| s.as_str())
+            .unwrap_or("<unknown>")
+    });
+    let artists = app
+        .metadata
+        .iter()
+        .map(|m| m.get("artist").map(|s| s.as_str()).unwrap_or("<unknown>"));
+    let albums = app
+        .metadata
+        .iter()
+        .map(|m| m.get("album").map(|s| s.as_str()).unwrap_or("<unknown>"));
 
-fn render_library_screen(app: &App, frame: &mut Frame) {}
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title_top(Line::from("Queue").left_aligned())
+        .padding(Padding::horizontal(1));
+    let list = Table::default()
+        .rows({ izip!(titles, artists, albums).map(|t| Row::new(vec![t.0, t.1, t.2])) })
+        .widths(vec![
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ])
+        .block(block)
+        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
-pub fn render(app: &App, frame: &mut Frame) {
+    frame.render_stateful_widget(list, frame.area(), &mut app.queue_state.state);
+}
+
+fn render_library_screen(app: &mut App, frame: &mut Frame) {}
+
+pub fn render(app: &mut App, frame: &mut Frame) {
     // TODO: add theming (make a view struct with the theme)
     match app.screen {
         Screen::Cover => render_cover_screen(app, frame),
