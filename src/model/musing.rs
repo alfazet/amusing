@@ -38,6 +38,7 @@ pub struct MusingState {
     pub devices: Vec<String>,
     pub queue: Vec<MusingSong>,
     pub current: Option<u64>,
+    pub timer: Option<(u64, u64)>,
 }
 
 #[derive(Debug, Default)]
@@ -50,6 +51,7 @@ pub struct MusingStateDelta {
     pub devices: Option<Vec<String>>,
     pub queue: Option<Vec<MusingSong>>,
     pub current: Option<u64>,
+    pub timer: Option<(u64, u64)>,
 }
 
 impl Display for PlaybackState {
@@ -82,9 +84,9 @@ impl TryFrom<&Value> for PlaybackState {
 impl Display for PlaybackMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let s = match self {
-            PlaybackMode::Single => "single",
-            PlaybackMode::Sequential => "sequential",
-            PlaybackMode::Random => "random",
+            PlaybackMode::Sequential => "W e r",
+            PlaybackMode::Single => "w E r",
+            PlaybackMode::Random => "w e R",
         }
         .to_string();
 
@@ -120,16 +122,6 @@ impl TryFrom<&Value> for MusingSong {
                     .get("path")
                     .and_then(|x| x.as_str().map(|s| s.to_string()))
                     .ok_or(anyhow!("expected key `path`"))?;
-                // let metadata: HashMap<_, _> = object
-                //     .get("metadata")
-                //     .and_then(|x| x.as_object())
-                //     .map(|x| {
-                //         x.iter()
-                //             .filter(|(_, v)| v.is_string())
-                //             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-                //             .collect()
-                //     })
-                //     .unwrap_or_default();
 
                 Ok(MusingSong { id, path })
             }
@@ -180,6 +172,21 @@ impl TryFrom<Value> for MusingStateDelta {
             })
         });
         let current = object.remove("current").and_then(|x| x.as_u64());
+        let timer = object.remove("timer").map(|timer| match timer.as_object() {
+            Some(timer) => {
+                let elapsed = timer
+                    .get("elapsed")
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or_default();
+                let duration = timer
+                    .get("duration")
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or_default();
+
+                (elapsed, duration)
+            }
+            None => (0, 0),
+        });
 
         Ok(Self {
             playback_state,
@@ -190,6 +197,7 @@ impl TryFrom<Value> for MusingStateDelta {
             devices,
             queue,
             current,
+            timer,
         })
     }
 }

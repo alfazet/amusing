@@ -2,11 +2,11 @@ use anyhow::Result;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Stylize},
-    symbols::border,
+    symbols::{border, line},
     text::{Line, Span, Text},
-    widgets::{Block, Cell, Paragraph, Row, Table, Widget},
+    widgets::{Block, Cell, LineGauge, Paragraph, Row, Table, Widget},
 };
 
 use crate::app::{App, AppState, Screen};
@@ -16,11 +16,13 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
     let volume = app.musing_state.volume;
     let speed = app.musing_state.speed;
     let mode = app.musing_state.playback_mode;
-    let is_stopped = app.musing_state.is_stopped();
+    let state = app.musing_state.playback_state;
     let gapless = app.musing_state.gapless;
     let current = app.musing_state.current;
+    let timer = app.musing_state.timer;
+    let is_stopped = app.musing_state.is_stopped();
 
-    let metadata = current.map(|i| &app.metadata[i as usize]);
+    let metadata = current.map(|cur| &app.metadata[cur as usize]);
     let current_title = metadata
         .and_then(|m| m.get("tracktitle"))
         .map(|s| s.as_str())
@@ -33,14 +35,24 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
         .and_then(|m| m.get("album"))
         .map(|s| s.as_str())
         .unwrap_or("<unknown album>");
+    let elapsed = timer.map(|timer| timer.0).unwrap_or_default();
+    let duration = timer.map(|timer| timer.1).unwrap_or_default();
 
-    // row 0, left column: [w e r g], (sequential, single, random, gapless) - the active ones are
-    // capitalized
-    // just below that a [paused], [stopped] or [playing]
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(frame.area());
     let header = Table::default()
         .rows(vec![
             Row::new(vec![
-                Cell::from(Line::from(format!("[{}]", mode)).left_aligned()),
+                Cell::from(
+                    Line::from(format!("[{} {}]", mode, if gapless { 'G' } else { 'g' }))
+                        .left_aligned(),
+                ),
                 Cell::from(
                     Line::from(if is_stopped {
                         "[musing stopped]"
@@ -49,10 +61,10 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
                     })
                     .centered(),
                 ),
-                Cell::from(Line::from(format!("volume: {}", volume)).right_aligned()),
+                Cell::from(Line::from(format!("Volume: {}", volume)).right_aligned()),
             ]),
             Row::new(vec![
-                Cell::from(Line::from(if gapless { "[gapless]" } else { "" }).left_aligned()),
+                Cell::from(Line::from(format!("[{}]", state)).left_aligned()),
                 Cell::from(
                     Line::from(if is_stopped {
                         "".into()
@@ -61,31 +73,29 @@ fn render_cover_screen(app: &App, frame: &mut Frame) {
                     })
                     .centered(),
                 ),
-                Cell::from(Line::from(format!("speed: {}", speed)).right_aligned()),
+                Cell::from(Line::from(format!("Speed: {}", speed)).right_aligned()),
             ]),
         ])
         .widths(vec![
-            Constraint::Max(12),
-            Constraint::Min(24),
-            Constraint::Max(12),
+            Constraint::Length(12),
+            Constraint::Fill(1),
+            Constraint::Length(12),
         ]);
 
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Percentage(15),
-            Constraint::Percentage(65),
-            Constraint::Percentage(20),
-        ])
-        .split(frame.area());
-
-    // at the bottom smth like this
-    // 0:00 -------------------- 3:40
-    // with the dashes progressively changing color
-    // if there's a status msg then it replaces that line for a couple
-    // of seconds
+    let timer_left = format!("{:02}:{:02}", (elapsed / 60).min(99), elapsed % 60);
+    let timer_right = format!("{:02}:{:02}", (duration / 60).min(99), duration % 60);
+    let progress_bar_width = (layout[2].width as usize) - 2 * (timer_left.len() + 1);
+    let done_part_width =
+        (progress_bar_width as f32 * (elapsed as f32 / duration as f32)).round() as usize;
+    let progress_bar = Line::from(vec![
+        Span::from(timer_left),
+        format!(" {}", ".".repeat(done_part_width)).cyan(),
+        format!("{} ", ".".repeat(progress_bar_width - done_part_width)).white(),
+        Span::from(timer_right),
+    ]);
 
     frame.render_widget(header, layout[0]);
+    frame.render_widget(progress_bar, layout[2]);
 }
 
 fn render_queue_screen(app: &App, frame: &mut Frame) {}

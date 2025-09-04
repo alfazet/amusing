@@ -55,8 +55,8 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('S') => Some(Message::Update(Update::Stop)),
         Key::Char('[') => Some(Message::Update(Update::Seek(-5))),
         Key::Char(']') => Some(Message::Update(Update::Seek(5))),
-        Key::Char(',') => Some(Message::Update(Update::Speed(-5))),
-        Key::Char('.') => Some(Message::Update(Update::Speed(5))),
+        Key::Char('<') => Some(Message::Update(Update::Speed(-5))),
+        Key::Char('>') => Some(Message::Update(Update::Speed(5))),
         Key::Char('-') => Some(Message::Update(Update::Volume(-5))),
         Key::Char('=') => Some(Message::Update(Update::Volume(5))),
         _ => None,
@@ -111,6 +111,9 @@ pub fn main_update(app: &mut App, delta: MusingStateDelta) {
     }
     if delta.current.is_some() {
         app.musing_state.current = delta.current;
+    }
+    if delta.timer.is_some() {
+        app.musing_state.timer = delta.timer;
     }
 }
 
