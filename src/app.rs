@@ -37,7 +37,7 @@ pub struct App {
     pub screen: Screen,
     pub musing_state: MusingState,
     pub queue_state: QueueState,
-    pub metadata: Vec<HashMap<String, String>>,
+    // pub metadata: Vec<HashMap<String, String>>,
     // pub status_msg: Option<String>,
 }
 
@@ -49,7 +49,6 @@ impl App {
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
-        let metadata = Vec::new();
         // let status_msg = None;
 
         Ok(Self {
@@ -58,7 +57,7 @@ impl App {
             screen,
             musing_state,
             queue_state,
-            metadata,
+            // metadata,
             // status_msg,
         })
     }

@@ -4,7 +4,7 @@ use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Styled, Stylize},
     symbols::{border, line},
     text::{Line, Span, Text},
     widgets::{
@@ -25,7 +25,7 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame) {
     let timer = app.musing_state.timer;
     let is_stopped = app.musing_state.is_stopped();
 
-    let metadata = current.map(|cur| &app.metadata[cur as usize]);
+    let metadata = current.map(|cur| &app.queue_state.metadata[cur as usize]);
     let current_title = metadata
         .and_then(|m| m.get("tracktitle"))
         .map(|s| s.as_str())
@@ -96,17 +96,16 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame) {
 
 fn render_queue_screen(app: &mut App, frame: &mut Frame) {
     let queue = &app.musing_state.queue;
-    let titles = app.metadata.iter().map(|m| {
+    let metadata = &app.queue_state.metadata;
+    let titles = metadata.iter().map(|m| {
         m.get("tracktitle")
             .map(|s| s.as_str())
             .unwrap_or("<unknown>")
     });
-    let artists = app
-        .metadata
+    let artists = metadata
         .iter()
         .map(|m| m.get("artist").map(|s| s.as_str()).unwrap_or("<unknown>"));
-    let albums = app
-        .metadata
+    let albums = metadata
         .iter()
         .map(|m| m.get("album").map(|s| s.as_str()).unwrap_or("<unknown>"));
 
@@ -114,12 +113,23 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .borders(Borders::ALL)
         .title_top(Line::from("Queue").left_aligned())
         .padding(Padding::horizontal(1));
+    let mut rows: Vec<_> = izip!(titles, artists, albums)
+        .enumerate()
+        .map(|(i, t)| {
+            let v = vec![t.0, t.1, t.2];
+            if app.musing_state.current.is_some_and(|cur| cur == i as u64) {
+                Row::new(v).style(Style::default().blue())
+            } else {
+                Row::new(v)
+            }
+        })
+        .collect();
     let list = Table::default()
-        .rows({ izip!(titles, artists, albums).map(|t| Row::new(vec![t.0, t.1, t.2])) })
+        .rows(rows)
         .widths(vec![
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-            Constraint::Fill(1),
+            Constraint::Fill(4),
+            Constraint::Fill(3),
+            Constraint::Fill(3),
         ])
         .block(block)
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));

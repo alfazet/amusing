@@ -23,6 +23,8 @@ pub enum Update {
     Speed(i16),
     Volume(i8),
     Scroll(i32),
+    ScrollToTop,
+    ScrollToBottom,
 }
 
 #[derive(Debug)]
@@ -45,6 +47,8 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
     match ev.code {
         Key::Char('j') | Key::Down => Some(Message::Update(Update::Scroll(1))),
         Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
+        Key::Home => Some(Message::Update(Update::ScrollToTop)),
+        Key::End => Some(Message::Update(Update::ScrollToBottom)),
         Key::Enter => Some(Message::Update(Update::Play)),
         _ => None,
     }
@@ -94,6 +98,14 @@ pub fn update_app(app: &mut App, msg: Message) {
         Message::Update(update) => match update {
             Update::Scroll(delta) => {
                 app.queue_state.scroll(delta);
+                Ok(())
+            }
+            Update::ScrollToTop => {
+                app.queue_state.scroll_to_top();
+                Ok(())
+            }
+            Update::ScrollToBottom => {
+                app.queue_state.scroll_to_bottom();
                 Ok(())
             }
             Update::Play => match app.queue_state.state.selected() {
@@ -152,6 +164,6 @@ pub fn update_metadata(app: &mut App) {
         .collect();
     if let Ok(metadata) = app.connection.metadata(&paths, None) {
         // TODO: add duration here (make a relevant endpoint in musing)
-        app.metadata = metadata;
+        app.queue_state.metadata = metadata;
     }
 }

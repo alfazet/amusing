@@ -8,8 +8,9 @@ use std::{
 
 use crate::panic;
 
-const REFRESH_TIMEOUT: u64 = 125; // in ms
-const POLL_TIMEOUT: u64 = 25;
+// in ms
+const REFRESH_TIMEOUT: u64 = 125;
+const POLL_TIMEOUT: u64 = 16;
 
 pub enum Event {
     Keypress(event::KeyEvent),

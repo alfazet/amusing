@@ -11,7 +11,6 @@ pub struct QueueState {
 impl QueueState {
     pub fn scroll(&mut self, delta: i32) {
         let u_delta = delta.unsigned_abs() as usize;
-        // this won't work before you move metadata to here
         let n_rows = self.metadata.len();
         match self.state.selected() {
             Some(r) => {
@@ -31,5 +30,13 @@ impl QueueState {
             }
             None => self.state.select_first(),
         };
+    }
+
+    pub fn scroll_to_top(&mut self) {
+        self.state.select_first();
+    }
+
+    pub fn scroll_to_bottom(&mut self) {
+        self.state.select_last();
     }
 }
