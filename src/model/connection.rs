@@ -6,7 +6,10 @@ use std::{
     net::{Shutdown, TcpStream},
 };
 
-use crate::model::musing::{MusingState, MusingStateDelta};
+use crate::{
+    constants,
+    model::musing::{MusingState, MusingStateDelta},
+};
 
 #[derive(Debug)]
 pub struct Connection {
@@ -94,14 +97,51 @@ impl Connection {
         }
     }
 
-    pub fn all_songs(&mut self, group_by: &[&str]) -> Result<HashMap<Vec<String>, Vec<String>>> {
-        // returns a map like:
-        // { [some combo of groupby tags]: [list of tracktitles] }
-        // then whenever we want to add some tracks to the queue we query for their paths with
-        // an appropriate select
-        // this makes it so that a full metadata fetch happens only for songs that we add to the
-        // queue
-        bail!("abc");
+    pub fn grouped_songs(
+        &mut self,
+        group_by: &[&str],
+    ) -> Result<HashMap<Vec<String>, Vec<String>>> {
+        let mut request = Map::new();
+        request.insert("kind".into(), "unique".into());
+        request.insert("tag".into(), "tracktitle".into());
+        request.insert("group_by".into(), group_by.into());
+        self.write_msg(Value::from(request))?;
+        let mut res = self.read_msg()?;
+        if let Some(obj) = res.as_object_mut()
+            && let Some(mut values) = obj.remove("values")
+            && let Some(values) = values.as_array_mut()
+        {
+            let mut grouped = HashMap::new();
+            for grouping in values.iter_mut().filter_map(|v| v.as_object_mut()) {
+                // the combination of values id'ing these songs (e.g.: [albumartist, album])
+                // the order of tags is the same as in the group_by argument
+                let id_comb: Vec<_> = group_by
+                    .iter()
+                    .map(|&tag| match grouping.remove(tag) {
+                        Some(value) => value.as_str().unwrap_or(constants::UNKNOWN).to_string(),
+                        None => constants::UNKNOWN.to_string(),
+                    })
+                    .collect();
+                let titles: Vec<_> = match grouping.remove("tracktitle") {
+                    Some(titles) => match titles.as_array() {
+                        Some(titles) => titles
+                            .iter()
+                            .map(|title| title.as_str().unwrap_or(constants::UNKNOWN).to_string())
+                            .collect(),
+                        None => Vec::new(),
+                    },
+                    None => Vec::new(),
+                };
+                grouped
+                    .entry(id_comb)
+                    .and_modify(|e: &mut Vec<String>| e.extend_from_slice(&titles))
+                    .or_insert(titles);
+            }
+
+            Ok(grouped)
+        } else {
+            bail!("could not fetch values");
+        }
     }
 
     pub fn state_delta(&mut self) -> Result<MusingStateDelta> {
@@ -162,6 +202,33 @@ impl Connection {
         self.write_msg(request)?;
 
         self.read_msg().map(|_| ())
+    }
+
+    pub fn update(&mut self) -> Result<String> {
+        let request = json!({ "kind": "update" });
+        self.write_msg(request)?;
+
+        let res = self.read_msg()?;
+        if let Some(obj) = res.as_object()
+            && let Some(status) = obj.get("status")
+            && status == "ok"
+        {
+            let added_songs = obj
+                .get("added_songs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or_default();
+            let removed_songs = obj
+                .get("removed_songs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or_default();
+
+            Ok(format!(
+                "update successful, added {} songs, removed {} songs",
+                added_songs, removed_songs
+            ))
+        } else {
+            bail!("could not update database");
+        }
     }
 
     // a convenience function for sending requests that don't have neither

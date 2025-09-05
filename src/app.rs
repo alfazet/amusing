@@ -7,6 +7,7 @@ use crate::{
     event_handler::{self, Event},
     model::{
         connection::Connection,
+        library::LibraryState,
         musing::{MusingState, MusingStateDelta},
         queue::QueueState,
     },
@@ -27,7 +28,6 @@ pub enum Screen {
     Queue,
     Library,
     // Playlists,
-    // FileTree,
 }
 
 #[derive(Debug)]
@@ -37,6 +37,7 @@ pub struct App {
     pub screen: Screen,
     pub musing_state: MusingState,
     pub queue_state: QueueState,
+    pub library_state: LibraryState,
     pub status_msg: Option<String>,
 }
 
@@ -48,6 +49,7 @@ impl App {
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
+        let library_state = LibraryState::default();
         let status_msg = None;
 
         Ok(Self {
@@ -56,6 +58,7 @@ impl App {
             screen,
             musing_state,
             queue_state,
+            library_state,
             status_msg,
         })
     }

@@ -3,7 +3,10 @@ use ratatui::crossterm::event::{self, Event as TermEvent};
 
 use crate::{
     app::{App, AppState, Screen},
-    model::musing::{MusingState, MusingStateDelta},
+    model::{
+        library::LibraryState,
+        musing::{MusingState, MusingStateDelta},
+    },
 };
 
 #[derive(Debug)]
@@ -22,7 +25,7 @@ pub enum Update {
     Seek(i64),
     Speed(i16),
     Volume(i8),
-    Update,
+    MusingUpdate,
     Scroll(i32),
     ScrollToTop,
     ScrollToBottom,
@@ -59,6 +62,8 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
     }
 }
 
+fn translate_key_event_library(app: &App, ev: event::KeyEvent) {}
+
 pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
@@ -81,7 +86,7 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('>') => Some(Message::Update(Update::Speed(5))),
         Key::Char('-') => Some(Message::Update(Update::Volume(-5))),
         Key::Char('=') => Some(Message::Update(Update::Volume(5))),
-        Key::Char('u') => Some(Message::Update(Update::Update)),
+        Key::Char('U') => Some(Message::Update(Update::MusingUpdate)),
         Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
         Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
         _ => match app.screen {
@@ -89,6 +94,16 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
             _ => None,
         },
     }
+}
+
+pub fn update_library(app: &mut App) -> Result<()> {
+    app.connection
+        .update()
+        .map(|msg| app.status_msg = Some(msg))?;
+    let grouped_songs = app.connection.grouped_songs(&["albumartist", "album"])?;
+    app.library_state.update(grouped_songs);
+
+    Ok(())
 }
 
 pub fn update_app(app: &mut App, msg: Message) {
@@ -103,6 +118,7 @@ pub fn update_app(app: &mut App, msg: Message) {
             Ok(())
         }
         Message::Update(update) => match update {
+            Update::MusingUpdate => update_library(app),
             Update::Scroll(delta) => {
                 app.queue_state.scroll(delta);
                 Ok(())

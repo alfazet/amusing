@@ -1,3 +1,4 @@
 pub mod connection;
+pub mod library;
 pub mod musing;
 pub mod queue;

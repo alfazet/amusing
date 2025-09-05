@@ -12,7 +12,10 @@ use ratatui::{
     },
 };
 
-use crate::app::{App, AppState, Screen};
+use crate::{
+    app::{App, AppState, Screen},
+    constants,
+};
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let volume = app.musing_state.volume;
@@ -128,7 +131,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .map(|m| {
             m.get("artist")
                 .map(|s| s.as_str())
-                .unwrap_or("<unknown>")
+                .unwrap_or(constants::UNKNOWN)
                 .to_string()
         })
         .collect();
@@ -137,7 +140,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .map(|m| {
             m.get("album")
                 .map(|s| s.as_str())
-                .unwrap_or("<unknown>")
+                .unwrap_or(constants::UNKNOWN)
                 .to_string()
         })
         .collect();
