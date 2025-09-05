@@ -37,8 +37,7 @@ pub struct App {
     pub screen: Screen,
     pub musing_state: MusingState,
     pub queue_state: QueueState,
-    // pub metadata: Vec<HashMap<String, String>>,
-    // pub status_msg: Option<String>,
+    pub status_msg: Option<String>,
 }
 
 impl App {
@@ -49,7 +48,7 @@ impl App {
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
-        // let status_msg = None;
+        let status_msg = None;
 
         Ok(Self {
             connection,
@@ -57,8 +56,7 @@ impl App {
             screen,
             musing_state,
             queue_state,
-            // metadata,
-            // status_msg,
+            status_msg,
         })
     }
 
@@ -74,10 +72,8 @@ impl App {
                         }
                     }
                     Event::Refresh => {
-                        if let Ok(delta_json) = self.connection.state_delta()
-                            && let Ok(delta) = MusingStateDelta::try_from(delta_json)
-                        {
-                            update::main_update(self, delta);
+                        if let Ok(delta) = self.connection.state_delta() {
+                            update::update_state(self, delta);
                         }
                     }
                 },

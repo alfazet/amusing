@@ -6,7 +6,7 @@ use std::{
     net::{Shutdown, TcpStream},
 };
 
-use crate::model::musing::MusingState;
+use crate::model::musing::{MusingState, MusingStateDelta};
 
 #[derive(Debug)]
 pub struct Connection {
@@ -23,6 +23,13 @@ impl Connection {
         self.stream.read_exact(&mut bytes)?;
         let resp = String::from_utf8(bytes)?;
         let value = serde_json::from_str::<Value>(&resp)?;
+        if let Some(obj) = value.as_object()
+            && let Some(status) = obj.get("status")
+            && status == "err"
+            && let Some(reason) = obj.get("reason")
+        {
+            bail!("musing error: {}", reason.to_string());
+        }
 
         Ok(value)
     }
@@ -50,13 +57,6 @@ impl Connection {
         Ok(Self { version, stream })
     }
 
-    pub fn shutdown(&mut self) -> Result<()> {
-        self.stream
-            .get_ref()
-            .shutdown(Shutdown::Both)
-            .map_err(|e| e.into())
-    }
-
     pub fn metadata(
         &mut self,
         paths: &[&str],
@@ -71,15 +71,6 @@ impl Connection {
         };
         self.write_msg(Value::from(request))?;
         let mut res = self.read_msg()?;
-
-        if let Some(obj) = res.as_object_mut()
-            && let Some(status) = obj.remove("status")
-            && status == "err"
-            && let Some(reason) = obj.remove("reason")
-        {
-            bail!(reason);
-        }
-
         if let Some(obj) = res.as_object_mut()
             && let Some(mut metadata) = obj.remove("metadata")
             && let Some(metadata) = metadata.as_array_mut()
@@ -99,18 +90,28 @@ impl Connection {
 
             Ok(metadata)
         } else {
-            bail!("expected a JSON object with key `metadata` and an array value");
+            bail!("could not fetch metadata");
         }
     }
 
-    pub fn state_delta(&mut self) -> Result<Value> {
+    pub fn all_songs(&mut self, group_by: &[&str]) -> Result<HashMap<Vec<String>, Vec<String>>> {
+        // returns a map like:
+        // { [some combo of groupby tags]: [list of tracktitles] }
+        // then whenever we want to add some tracks to the queue we query for their paths with
+        // an appropriate select
+        // this makes it so that a full metadata fetch happens only for songs that we add to the
+        // queue
+        bail!("abc");
+    }
+
+    pub fn state_delta(&mut self) -> Result<MusingStateDelta> {
         let request = json!({
             "kind": "state",
         });
         self.write_msg(request)?;
+        let res = self.read_msg()?;
 
-        // TODO: react to err key being present
-        self.read_msg()
+        MusingStateDelta::try_from(res)
     }
 
     pub fn seek(&mut self, seconds: i64) -> Result<()> {
@@ -147,6 +148,16 @@ impl Connection {
         let request = json!({
             "kind": "play",
             "id": id,
+        });
+        self.write_msg(request)?;
+
+        self.read_msg().map(|_| ())
+    }
+
+    pub fn remove(&mut self, id: u64) -> Result<()> {
+        let request = json!({
+            "kind": "removequeue",
+            "ids": [id],
         });
         self.write_msg(request)?;
 

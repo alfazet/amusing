@@ -67,16 +67,13 @@ impl Display for PlaybackState {
     }
 }
 
-impl TryFrom<&Value> for PlaybackState {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Value) -> Result<Self> {
+impl From<&Value> for PlaybackState {
+    fn from(value: &Value) -> Self {
         match value.as_str() {
-            Some("stopped") => Ok(PlaybackState::Stopped),
-            Some("playing") => Ok(PlaybackState::Playing),
-            Some("paused") => Ok(PlaybackState::Paused),
-            Some(other) => bail!("unexpected playback state `{}`", other),
-            None => bail!("expected a string"),
+            Some("stopped") => PlaybackState::Stopped,
+            Some("playing") => PlaybackState::Playing,
+            Some("paused") => PlaybackState::Paused,
+            _ => unreachable!(),
         }
     }
 }
@@ -94,16 +91,13 @@ impl Display for PlaybackMode {
     }
 }
 
-impl TryFrom<&Value> for PlaybackMode {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Value) -> Result<Self> {
+impl From<&Value> for PlaybackMode {
+    fn from(value: &Value) -> Self {
         match value.as_str() {
-            Some("sequential") => Ok(PlaybackMode::Sequential),
-            Some("single") => Ok(PlaybackMode::Single),
-            Some("random") => Ok(PlaybackMode::Random),
-            Some(other) => bail!("unexpected playback mode `{}`", other),
-            None => bail!("expected a string"),
+            Some("sequential") => PlaybackMode::Sequential,
+            Some("single") => PlaybackMode::Single,
+            Some("random") => PlaybackMode::Random,
+            _ => unreachable!(),
         }
     }
 }
@@ -146,11 +140,11 @@ impl TryFrom<Value> for MusingStateDelta {
         let playback_state = object
             .remove("playback_state")
             .as_ref()
-            .and_then(|x| PlaybackState::try_from(x).ok());
+            .map(PlaybackState::from);
         let playback_mode = object
             .remove("playback_mode")
             .as_ref()
-            .and_then(|x| PlaybackMode::try_from(x).ok());
+            .map(PlaybackMode::from);
         let volume = object.remove("volume").and_then(|x| x.as_u64());
         let speed = object.remove("speed").and_then(|x| x.as_u64());
         let gapless = object.remove("gapless").and_then(|x| x.as_bool());

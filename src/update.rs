@@ -22,9 +22,12 @@ pub enum Update {
     Seek(i64),
     Speed(i16),
     Volume(i8),
+    Update,
     Scroll(i32),
     ScrollToTop,
     ScrollToBottom,
+    Remove,
+    Clear,
 }
 
 #[derive(Debug)]
@@ -49,6 +52,8 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
         Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
         Key::Home => Some(Message::Update(Update::ScrollToTop)),
         Key::End => Some(Message::Update(Update::ScrollToBottom)),
+        Key::Char('d') => Some(Message::Update(Update::Remove)),
+        Key::Delete => Some(Message::Update(Update::Clear)),
         Key::Enter => Some(Message::Update(Update::Play)),
         _ => None,
     }
@@ -76,6 +81,7 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('>') => Some(Message::Update(Update::Speed(5))),
         Key::Char('-') => Some(Message::Update(Update::Volume(-5))),
         Key::Char('=') => Some(Message::Update(Update::Volume(5))),
+        Key::Char('u') => Some(Message::Update(Update::Update)),
         Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
         Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
         _ => match app.screen {
@@ -86,6 +92,7 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
 }
 
 pub fn update_app(app: &mut App, msg: Message) {
+    app.status_msg = None;
     let res = match msg {
         Message::SwitchScreen(screen) => {
             app.screen = screen;
@@ -112,6 +119,10 @@ pub fn update_app(app: &mut App, msg: Message) {
                 Some(i) => app.connection.play(app.musing_state.queue[i].id),
                 None => Ok(()),
             },
+            Update::Remove => match app.queue_state.state.selected() {
+                Some(i) => app.connection.remove(app.musing_state.queue[i].id),
+                None => Ok(()),
+            },
             Update::Seek(seconds) => app.connection.seek(seconds),
             Update::Speed(speed) => app.connection.speed(speed),
             Update::Volume(delta) => app.connection.volume(delta),
@@ -119,12 +130,12 @@ pub fn update_app(app: &mut App, msg: Message) {
         },
     };
 
-    // if let Err(e) = res {
-    //     app.status_msg = Some(e.to_string());
-    // }
+    if let Err(e) = res {
+        app.status_msg = Some(e.to_string());
+    }
 }
 
-pub fn main_update(app: &mut App, delta: MusingStateDelta) {
+pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     if let Some(playback_state) = delta.playback_state {
         app.musing_state.playback_state = playback_state;
     }
@@ -162,8 +173,8 @@ pub fn update_metadata(app: &mut App) {
         .iter()
         .map(|song| song.path.as_str())
         .collect();
-    if let Ok(metadata) = app.connection.metadata(&paths, None) {
-        // TODO: add duration here (make a relevant endpoint in musing)
-        app.queue_state.metadata = metadata;
+    match app.connection.metadata(&paths, None) {
+        Ok(metadata) => app.queue_state.metadata = metadata,
+        Err(e) => app.status_msg = Some(e.to_string()),
     }
 }
