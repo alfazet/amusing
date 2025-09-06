@@ -8,7 +8,7 @@ use ratatui::{
     symbols::{border, line},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, Cell, LineGauge, Padding, Paragraph, Row, Table, TableState, Widget,
+        Block, Borders, Cell, LineGauge, List, Padding, Paragraph, Row, Table, TableState, Widget,
     },
 };
 
@@ -17,7 +17,7 @@ use crate::{
     constants,
 };
 
-fn render_header(app: &App, frame: &mut Frame, area: Rect) {
+fn render_header(app: &mut App, frame: &mut Frame, area: Rect) {
     let volume = app.musing_state.volume;
     let speed = app.musing_state.speed;
     let mode = app.musing_state.playback_mode;
@@ -73,7 +73,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(header, area);
 }
 
-fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
+fn render_footer(app: &mut App, frame: &mut Frame, area: Rect) {
     let timer = app.musing_state.timer;
     let elapsed = timer.map(|timer| timer.0).unwrap_or_default();
     let duration = timer.map(|timer| timer.1).unwrap_or_default();
@@ -98,7 +98,7 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(footer, area);
 }
 
-fn render_cover_screen(app: &App, frame: &mut Frame) {
+fn render_cover_screen(app: &mut App, frame: &mut Frame) {
     // TODO: album cover goes here at some point (render with chafa)
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -155,28 +155,9 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
     let total_duration = durations_int.iter().sum::<u64>();
     let durations: Vec<_> = durations_int
         .into_iter()
-        .map(|d| view_utils::format_time(d))
+        .map(view_utils::format_time)
         .collect();
 
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(2),
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .split(frame.area());
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(
-            Line::from(format!(
-                "Total duration: {}",
-                view_utils::format_time(total_duration)
-            ))
-            .cyan(),
-        )
-        .title_alignment(Alignment::Center)
-        .padding(Padding::horizontal(1));
     let rows: Vec<_> = izip!(titles, artists, albums, durations)
         .enumerate()
         .map(|(i, t)| {
@@ -188,6 +169,17 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
             }
         })
         .collect();
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(
+            Line::from(format!(
+                "Total duration: {}",
+                view_utils::format_time(total_duration)
+            ))
+            .cyan(),
+        )
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
     let list = Table::default()
         .rows(rows)
         .widths(vec![
@@ -199,12 +191,73 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .block(block)
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(frame.area());
     render_header(app, frame, layout[0]);
     frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state);
     render_footer(app, frame, layout[2]);
 }
 
-fn render_library_screen(app: &mut App, frame: &mut Frame) {}
+fn render_library_screen(app: &mut App, frame: &mut Frame) {
+    let library = &app.library_state;
+
+    let children: Vec<_> = library
+        .children
+        .iter()
+        .map(|child| Row::new(child.id.clone()))
+        .collect();
+    let children_block = Block::default()
+        .borders(Borders::ALL)
+        .title(Line::from("Artists/Albums").cyan())
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let children_list = Table::default()
+        .rows(children)
+        .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .block(children_block)
+        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+
+    let titles_list = library.selected_child().map(|child| {
+        let titles = child.titles.clone();
+        let titles_block = Block::default()
+            .borders(Borders::ALL)
+            .title(Line::from("Songs").cyan())
+            .title_alignment(Alignment::Center)
+            .padding(Padding::horizontal(1));
+
+        List::default()
+            .items(titles)
+            .block(titles_block)
+            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    });
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(frame.area());
+    let middle = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .split(layout[1]);
+    render_header(app, frame, layout[0]);
+    frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
+    if let Some(titles_list) = titles_list
+        && let Some(mut child) = app.library_state.selected_child_mut()
+    {
+        frame.render_stateful_widget(titles_list, middle[1], &mut child.state);
+    }
+    render_footer(app, frame, layout[2]);
+}
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     // TODO: add theming (make a view struct with the theme)

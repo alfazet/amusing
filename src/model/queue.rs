@@ -2,14 +2,16 @@ use anyhow::Result;
 use ratatui::widgets::TableState;
 use std::collections::HashMap;
 
+use crate::model::common::Scroll;
+
 #[derive(Debug, Default)]
 pub struct QueueState {
     pub state: TableState,
     pub metadata: Vec<HashMap<String, String>>,
 }
 
-impl QueueState {
-    pub fn scroll(&mut self, delta: i32) {
+impl Scroll for QueueState {
+    fn scroll(&mut self, delta: i32) {
         let u_delta = delta.unsigned_abs() as usize;
         let n_rows = self.metadata.len();
         match self.state.selected() {
@@ -32,11 +34,11 @@ impl QueueState {
         };
     }
 
-    pub fn scroll_to_top(&mut self) {
+    fn scroll_to_top(&mut self) {
         self.state.select_first();
     }
 
-    pub fn scroll_to_bottom(&mut self) {
+    fn scroll_to_bottom(&mut self) {
         self.state.select_last();
     }
 }

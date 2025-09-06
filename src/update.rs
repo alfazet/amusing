@@ -4,6 +4,7 @@ use ratatui::crossterm::event::{self, Event as TermEvent};
 use crate::{
     app::{App, AppState, Screen},
     model::{
+        common::Scroll,
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
     },
@@ -26,11 +27,14 @@ pub enum Update {
     Speed(i16),
     Volume(i8),
     MusingUpdate,
-    Scroll(i32),
-    ScrollToTop,
-    ScrollToBottom,
     Remove,
     Clear,
+    QueueScroll(i32),
+    QueueScrollToTop,
+    QueueScrollToBottom,
+    LibraryScroll(i32),
+    LibraryScrollToTop,
+    LibraryScrollToBottom,
 }
 
 #[derive(Debug)]
@@ -51,10 +55,10 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
     use event::KeyCode as Key;
 
     match ev.code {
-        Key::Char('j') | Key::Down => Some(Message::Update(Update::Scroll(1))),
-        Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
-        Key::Home => Some(Message::Update(Update::ScrollToTop)),
-        Key::End => Some(Message::Update(Update::ScrollToBottom)),
+        Key::Char('j') | Key::Down => Some(Message::Update(Update::QueueScroll(1))),
+        Key::Char('k') | Key::Up => Some(Message::Update(Update::QueueScroll(-1))),
+        Key::Home => Some(Message::Update(Update::QueueScrollToTop)),
+        Key::End => Some(Message::Update(Update::QueueScrollToBottom)),
         Key::Char('d') => Some(Message::Update(Update::Remove)),
         Key::Delete => Some(Message::Update(Update::Clear)),
         Key::Enter => Some(Message::Update(Update::Play)),
@@ -62,7 +66,15 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
     }
 }
 
-fn translate_key_event_library(app: &App, ev: event::KeyEvent) {}
+fn translate_key_event_library(app: &App, ev: event::KeyEvent) -> Option<Message> {
+    use event::KeyCode as Key;
+
+    match ev.code {
+        Key::Char('j') | Key::Down => Some(Message::Update(Update::LibraryScroll(1))),
+        Key::Char('k') | Key::Up => Some(Message::Update(Update::LibraryScroll(-1))),
+        _ => None,
+    }
+}
 
 pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
@@ -89,8 +101,10 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('U') => Some(Message::Update(Update::MusingUpdate)),
         Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
         Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
+        Key::Char('3') => Some(Message::SwitchScreen(Screen::Library)),
         _ => match app.screen {
             Screen::Queue => translate_key_event_queue(app, ev),
+            Screen::Library => translate_key_event_library(app, ev),
             _ => None,
         },
     }
@@ -119,16 +133,28 @@ pub fn update_app(app: &mut App, msg: Message) {
         }
         Message::Update(update) => match update {
             Update::MusingUpdate => update_library(app),
-            Update::Scroll(delta) => {
+            Update::QueueScroll(delta) => {
                 app.queue_state.scroll(delta);
                 Ok(())
             }
-            Update::ScrollToTop => {
+            Update::QueueScrollToTop => {
                 app.queue_state.scroll_to_top();
                 Ok(())
             }
-            Update::ScrollToBottom => {
+            Update::QueueScrollToBottom => {
                 app.queue_state.scroll_to_bottom();
+                Ok(())
+            }
+            Update::LibraryScroll(delta) => {
+                app.library_state.scroll(delta);
+                Ok(())
+            }
+            Update::LibraryScrollToTop => {
+                app.library_state.scroll_to_top();
+                Ok(())
+            }
+            Update::LibraryScrollToBottom => {
+                app.library_state.scroll_to_bottom();
                 Ok(())
             }
             Update::Play => match app.queue_state.state.selected() {

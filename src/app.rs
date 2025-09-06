@@ -66,6 +66,7 @@ impl App {
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
         let (tx_event, rx_event) = std_chan::channel();
         event_handler::run(tx_event);
+        update::update_library(self)?;
         loop {
             match rx_event.recv() {
                 Ok(event) => match event {
