@@ -223,9 +223,12 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
         app.musing_state.queue = queue;
         update_metadata(app);
     }
-    if delta.current.is_some() {
-        app.musing_state.current = delta.current;
+    if let Some(current) = delta.current {
+        app.musing_state.current = current;
     }
+    // if delta.current.is_some() {
+    //     app.musing_state.current = delta.current;
+    // }
     if delta.timer.is_some() {
         app.musing_state.timer = delta.timer;
     }

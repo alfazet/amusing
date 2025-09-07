@@ -166,7 +166,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .map(|(i, t)| {
             let v = vec![t.0, t.1, t.2, t.3];
             if app.musing_state.current.is_some_and(|cur| cur == i as u64) {
-                Row::new(v).style(Style::default().blue())
+                Row::new(v).style(Style::default().fg(Color::Blue))
             } else {
                 Row::new(v)
             }
@@ -210,8 +210,8 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
 fn render_library_screen(app: &mut App, frame: &mut Frame) {
     let default_highlight = Style::default().add_modifier(Modifier::REVERSED);
     let (child_highlight, song_highlight) = match &app.library_state.focused_part {
-        FocusedPart::Groups => (default_highlight.fg(Color::Magenta), default_highlight),
-        FocusedPart::Child(_) => (default_highlight, default_highlight.fg(Color::Magenta)),
+        FocusedPart::Groups => (default_highlight.fg(Color::Blue), default_highlight),
+        FocusedPart::Child(_) => (default_highlight, default_highlight.fg(Color::Blue)),
     };
 
     let children: Vec<_> = app

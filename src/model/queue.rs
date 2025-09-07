@@ -39,6 +39,6 @@ impl Scroll for QueueState {
     }
 
     fn scroll_to_bottom(&mut self) {
-        self.state.select_last();
+        self.state.select(Some(self.metadata.len() - 1));
     }
 }

@@ -50,7 +50,7 @@ pub struct MusingStateDelta {
     pub gapless: Option<bool>,
     pub devices: Option<Vec<String>>,
     pub queue: Option<Vec<MusingSong>>,
-    pub current: Option<u64>,
+    pub current: Option<Option<u64>>,
     pub timer: Option<(u64, u64)>,
 }
 
@@ -165,7 +165,9 @@ impl TryFrom<Value> for MusingStateDelta {
                     .collect::<Option<_>>()
             })
         });
-        let current = object.remove("current").and_then(|x| x.as_u64());
+        let current = object
+            .remove("current")
+            .map(|x| if x.is_null() { None } else { x.as_u64() });
         let timer = object.remove("timer").map(|timer| match timer.as_object() {
             Some(timer) => {
                 let elapsed = timer
