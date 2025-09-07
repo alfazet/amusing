@@ -8,7 +8,10 @@ use std::{
 
 use crate::{
     constants,
-    model::musing::{MusingState, MusingStateDelta},
+    model::{
+        library::SongGroup,
+        musing::{MusingState, MusingStateDelta},
+    },
 };
 
 #[derive(Debug)]
@@ -83,10 +86,8 @@ impl Connection {
                 .filter_map(|v| v.as_object())
                 .map(|obj| {
                     obj.iter()
-                        .filter_map(|(k, v)| {
-                            v.is_string()
-                                .then(|| (k.clone(), v.as_str().unwrap().to_string()))
-                        })
+                        .filter(|(k, v)| v.is_string())
+                        .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
                         .collect::<HashMap<_, _>>()
                 })
                 .collect();
@@ -99,12 +100,18 @@ impl Connection {
 
     pub fn grouped_songs(
         &mut self,
-        group_by: &[&str],
-    ) -> Result<HashMap<Vec<String>, Vec<String>>> {
+        group_by: &[String],
+        children_tags: &[String],
+    ) -> Result<HashMap<Vec<String>, SongGroup>> {
         let mut request = Map::new();
-        request.insert("kind".into(), "unique".into());
-        request.insert("tag".into(), "tracktitle".into());
+        request.insert("kind".into(), "select".into());
+        request.insert("tags".into(), children_tags.into());
         request.insert("group_by".into(), group_by.into());
+        let comparators: Vec<_> = children_tags
+            .iter()
+            .map(|tag| json!({"tag": tag}))
+            .collect();
+        request.insert("comparators".into(), comparators.into());
         self.write_msg(Value::from(request))?;
         let mut res = self.read_msg()?;
         if let Some(obj) = res.as_object_mut()
@@ -112,35 +119,46 @@ impl Connection {
             && let Some(values) = values.as_array_mut()
         {
             let mut grouped = HashMap::new();
-            for grouping in values.iter_mut().filter_map(|v| v.as_object_mut()) {
+            for group in values.iter_mut().filter_map(|v| v.as_object_mut()) {
                 // the combination of values id'ing these songs (e.g.: [albumartist, album])
                 // the order of tags is the same as in the group_by argument
                 let id_comb: Vec<_> = group_by
                     .iter()
-                    .map(|&tag| match grouping.remove(tag) {
+                    .map(|tag| match group.remove(tag) {
                         Some(value) => value.as_str().unwrap_or(constants::UNKNOWN).to_string(),
                         None => constants::UNKNOWN.to_string(),
                     })
                     .collect();
-                let titles: Vec<_> = match grouping.remove("tracktitle") {
-                    Some(titles) => match titles.as_array() {
-                        Some(titles) => titles
-                            .iter()
-                            .map(|title| title.as_str().unwrap_or(constants::UNKNOWN).to_string())
-                            .collect(),
-                        None => Vec::new(),
-                    },
-                    None => Vec::new(),
+                let (song_values, paths) = if let Some(songs) = group.remove("data")
+                    && let Some(songs) = songs.as_array()
+                {
+                    let mut song_values = Vec::new();
+                    let mut paths = Vec::new();
+                    for song_data in songs {
+                        if let Some(song_data) = song_data.as_array() {
+                            let mut song_value = Vec::new();
+                            for (key, value) in children_tags.iter().zip(song_data.iter()) {
+                                song_value.push(value.as_str().map(|s| s.to_string()));
+                            }
+                            song_values.push(song_value);
+                        }
+                    }
+
+                    (song_values, paths)
+                } else {
+                    (Vec::new(), Vec::new())
                 };
                 grouped
                     .entry(id_comb)
-                    .and_modify(|e: &mut Vec<String>| e.extend_from_slice(&titles))
-                    .or_insert(titles);
+                    .and_modify(|group: &mut SongGroup| {
+                        group.add_songs(children_tags, &song_values, &paths)
+                    })
+                    .or_insert(SongGroup::new(children_tags, &song_values, &paths));
             }
 
             Ok(grouped)
         } else {
-            bail!("could not fetch values");
+            bail!("could not select songs");
         }
     }
 

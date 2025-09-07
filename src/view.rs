@@ -205,37 +205,37 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_library_screen(app: &mut App, frame: &mut Frame) {
-    let library = &app.library_state;
-
-    let children: Vec<_> = library
-        .children
-        .iter()
-        .map(|child| Row::new(child.id.clone()))
-        .collect();
-    let children_block = Block::default()
-        .borders(Borders::ALL)
-        .title(Line::from("Artists/Albums").cyan())
-        .title_alignment(Alignment::Center)
-        .padding(Padding::horizontal(1));
-    let children_list = Table::default()
-        .rows(children)
-        .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
-        .block(children_block)
-        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-
-    let titles_list = library.selected_child().map(|child| {
-        let titles = child.titles.clone();
-        let titles_block = Block::default()
-            .borders(Borders::ALL)
-            .title(Line::from("Songs").cyan())
-            .title_alignment(Alignment::Center)
-            .padding(Padding::horizontal(1));
-
-        List::default()
-            .items(titles)
-            .block(titles_block)
-            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-    });
+    // let library = &app.library_state;
+    //
+    // let children: Vec<_> = library
+    //     .children
+    //     .iter()
+    //     .map(|child| Row::new(child.id.clone()))
+    //     .collect();
+    // let children_block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .title(Line::from("Artists/Albums").cyan())
+    //     .title_alignment(Alignment::Center)
+    //     .padding(Padding::horizontal(1));
+    // let children_list = Table::default()
+    //     .rows(children)
+    //     .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
+    //     .block(children_block)
+    //     .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+    //
+    // let titles_list = library.selected_child().map(|child| {
+    //     let titles = child.titles.clone();
+    //     let titles_block = Block::default()
+    //         .borders(Borders::ALL)
+    //         .title(Line::from("Songs").cyan())
+    //         .title_alignment(Alignment::Center)
+    //         .padding(Padding::horizontal(1));
+    //
+    //     List::default()
+    //         .items(titles)
+    //         .block(titles_block)
+    //         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    // });
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -250,12 +250,12 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
         .split(layout[1]);
     render_header(app, frame, layout[0]);
-    frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
-    if let Some(titles_list) = titles_list
-        && let Some(mut child) = app.library_state.selected_child_mut()
-    {
-        frame.render_stateful_widget(titles_list, middle[1], &mut child.state);
-    }
+    // frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
+    // if let Some(titles_list) = titles_list
+    //     && let Some(mut child) = app.library_state.selected_child_mut()
+    // {
+    //     frame.render_stateful_widget(titles_list, middle[1], &mut child.state);
+    // }
     render_footer(app, frame, layout[2]);
 }
 

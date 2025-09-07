@@ -114,7 +114,10 @@ pub fn update_library(app: &mut App) -> Result<()> {
     app.connection
         .update()
         .map(|msg| app.status_msg = Some(msg))?;
-    let grouped_songs = app.connection.grouped_songs(&["albumartist", "album"])?;
+    let grouped_songs = app.connection.grouped_songs(
+        &app.library_state.group_by_tags,
+        &app.library_state.children_tags,
+    )?;
     app.library_state.update(grouped_songs);
 
     Ok(())
