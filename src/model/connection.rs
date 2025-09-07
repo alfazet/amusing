@@ -86,7 +86,7 @@ impl Connection {
                 .filter_map(|v| v.as_object())
                 .map(|obj| {
                     obj.iter()
-                        .filter(|(k, v)| v.is_string())
+                        .filter(|(_, v)| v.is_string())
                         .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
                         .collect::<HashMap<_, _>>()
                 })
@@ -137,10 +137,17 @@ impl Connection {
                     for song_data in songs {
                         if let Some(song_data) = song_data.as_array() {
                             let mut song_value = Vec::new();
-                            for (key, value) in children_tags.iter().zip(song_data.iter()) {
+                            for (_, value) in children_tags.iter().zip(song_data.iter()) {
                                 song_value.push(value.as_str().map(|s| s.to_string()));
                             }
                             song_values.push(song_value);
+                            paths.push(
+                                song_data
+                                    .last()
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or(constants::UNKNOWN)
+                                    .to_string(),
+                            );
                         }
                     }
 
@@ -197,6 +204,13 @@ impl Connection {
             "kind": "volume",
             "delta": delta,
         });
+        self.write_msg(request)?;
+
+        self.read_msg().map(|_| ())
+    }
+
+    pub fn add_to_queue(&mut self, paths: &[String]) -> Result<()> {
+        let request = json!({"kind": "addqueue", "paths": paths});
         self.write_msg(request)?;
 
         self.read_msg().map(|_| ())

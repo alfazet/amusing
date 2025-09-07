@@ -35,6 +35,9 @@ pub enum Update {
     LibraryScroll(i32),
     LibraryScrollToTop,
     LibraryScrollToBottom,
+    LibraryFocusLeft,
+    LibraryFocusRight,
+    AddToQueue,
 }
 
 #[derive(Debug)]
@@ -72,6 +75,11 @@ fn translate_key_event_library(app: &App, ev: event::KeyEvent) -> Option<Message
     match ev.code {
         Key::Char('j') | Key::Down => Some(Message::Update(Update::LibraryScroll(1))),
         Key::Char('k') | Key::Up => Some(Message::Update(Update::LibraryScroll(-1))),
+        Key::Home => Some(Message::Update(Update::LibraryScrollToTop)),
+        Key::End => Some(Message::Update(Update::LibraryScrollToBottom)),
+        Key::Char('h') | Key::Left => Some(Message::Update(Update::LibraryFocusLeft)),
+        Key::Char('l') | Key::Right => Some(Message::Update(Update::LibraryFocusRight)),
+        Key::Enter => Some(Message::Update(Update::AddToQueue)),
         _ => None,
     }
 }
@@ -160,6 +168,18 @@ pub fn update_app(app: &mut App, msg: Message) {
                 app.library_state.scroll_to_bottom();
                 Ok(())
             }
+            Update::LibraryFocusLeft => {
+                app.library_state.focus_left();
+                Ok(())
+            }
+            Update::LibraryFocusRight => {
+                app.library_state.focus_right();
+                Ok(())
+            }
+            Update::AddToQueue => match app.library_state.selected_songs() {
+                Some(songs) => app.connection.add_to_queue(songs),
+                None => Ok(()),
+            },
             Update::Play => match app.queue_state.state.selected() {
                 Some(i) => app.connection.play(app.musing_state.queue[i].id),
                 None => Ok(()),

@@ -15,9 +15,10 @@ use ratatui::{
 use crate::{
     app::{App, AppState, Screen},
     constants,
+    model::library::FocusedPart,
 };
 
-fn render_header(app: &mut App, frame: &mut Frame, area: Rect) {
+fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let volume = app.musing_state.volume;
     let speed = app.musing_state.speed;
     let mode = app.musing_state.playback_mode;
@@ -25,8 +26,10 @@ fn render_header(app: &mut App, frame: &mut Frame, area: Rect) {
     let gapless = app.musing_state.gapless;
     let current = app.musing_state.current;
     let is_stopped = app.musing_state.is_stopped();
-    let metadata = current.map(|cur| &app.queue_state.metadata[cur as usize]);
-    let path = current.map(|cur| &app.musing_state.queue[cur as usize].path);
+    let metadata = current.and_then(|cur| app.queue_state.metadata.get(cur as usize));
+    let path = current
+        .and_then(|cur| app.musing_state.queue.get(cur as usize))
+        .map(|x| &x.path);
 
     let current_title = metadata
         .and_then(|m| m.get("tracktitle"))
@@ -73,7 +76,7 @@ fn render_header(app: &mut App, frame: &mut Frame, area: Rect) {
     frame.render_widget(header, area);
 }
 
-fn render_footer(app: &mut App, frame: &mut Frame, area: Rect) {
+fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     let timer = app.musing_state.timer;
     let elapsed = timer.map(|timer| timer.0).unwrap_or_default();
     let duration = timer.map(|timer| timer.1).unwrap_or_default();
@@ -205,37 +208,51 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_library_screen(app: &mut App, frame: &mut Frame) {
-    // let library = &app.library_state;
-    //
-    // let children: Vec<_> = library
-    //     .children
-    //     .iter()
-    //     .map(|child| Row::new(child.id.clone()))
-    //     .collect();
-    // let children_block = Block::default()
-    //     .borders(Borders::ALL)
-    //     .title(Line::from("Artists/Albums").cyan())
-    //     .title_alignment(Alignment::Center)
-    //     .padding(Padding::horizontal(1));
-    // let children_list = Table::default()
-    //     .rows(children)
-    //     .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
-    //     .block(children_block)
-    //     .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-    //
-    // let titles_list = library.selected_child().map(|child| {
-    //     let titles = child.titles.clone();
-    //     let titles_block = Block::default()
-    //         .borders(Borders::ALL)
-    //         .title(Line::from("Songs").cyan())
-    //         .title_alignment(Alignment::Center)
-    //         .padding(Padding::horizontal(1));
-    //
-    //     List::default()
-    //         .items(titles)
-    //         .block(titles_block)
-    //         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-    // });
+    let default_highlight = Style::default().add_modifier(Modifier::REVERSED);
+    let (child_highlight, song_highlight) = match &app.library_state.focused_part {
+        FocusedPart::Groups => (default_highlight.fg(Color::Magenta), default_highlight),
+        FocusedPart::Child(_) => (default_highlight, default_highlight.fg(Color::Magenta)),
+    };
+
+    let children: Vec<_> = app
+        .library_state
+        .children
+        .iter()
+        .map(|child| Row::new(child.id_comb.clone()))
+        .collect();
+    let children_block = Block::default()
+        .borders(Borders::ALL)
+        .title(Line::from("Artists/Albums").cyan())
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let children_list = Table::default()
+        .rows(children)
+        .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .block(children_block)
+        .row_highlight_style(child_highlight);
+
+    let songs = app
+        .library_state
+        .selected_child()
+        .map(|child| {
+            let group = &child.group;
+            let mut titles = Vec::new();
+            for (meta, path) in group.metadata.iter().zip(group.paths.iter()) {
+                titles.push(meta.get("tracktitle").unwrap_or(path).to_string());
+            }
+
+            titles
+        })
+        .unwrap_or_default();
+    let songs_block = Block::default()
+        .borders(Borders::ALL)
+        .title(Line::from("Songs").cyan())
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let song_list = Table::default()
+        .rows(songs.into_iter().map(|song| Row::new([song])))
+        .block(songs_block)
+        .row_highlight_style(song_highlight);
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -250,12 +267,10 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
         .split(layout[1]);
     render_header(app, frame, layout[0]);
-    // frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
-    // if let Some(titles_list) = titles_list
-    //     && let Some(mut child) = app.library_state.selected_child_mut()
-    // {
-    //     frame.render_stateful_widget(titles_list, middle[1], &mut child.state);
-    // }
+    frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
+    if let Some(child) = app.library_state.selected_child_mut() {
+        frame.render_stateful_widget(song_list, middle[1], &mut child.state);
+    }
     render_footer(app, frame, layout[2]);
 }
 

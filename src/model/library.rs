@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use crate::model::common::Scroll;
 
 #[derive(Debug, Default)]
-pub enum ActivePart {
+pub enum FocusedPart {
     #[default]
     Groups, // "lhs" of the view
-    Child(usize), // "rhs" of the view, which child is active
+    Child(usize), // "rhs" of the view, which child is focused
 }
 
 #[derive(Debug, Default)]
@@ -19,7 +19,7 @@ pub struct SongGroup {
 
 #[derive(Debug, Default)]
 pub struct LibraryChildState {
-    pub state: ListState,
+    pub state: TableState,
     pub id_comb: Vec<String>, // the combination of tags that identifies these songs
     pub group: SongGroup,
 }
@@ -27,7 +27,7 @@ pub struct LibraryChildState {
 #[derive(Debug)]
 pub struct LibraryState {
     pub state: TableState,
-    pub active_part: ActivePart,
+    pub focused_part: FocusedPart,
     pub group_by_tags: Vec<String>,
     pub children_tags: Vec<String>,
     pub children: Vec<LibraryChildState>, // grouped collections of songs
@@ -70,7 +70,9 @@ impl SongGroup {
         metadata_values: &[Vec<Option<String>>],
         paths: &[String],
     ) {
-        // let metadata_pairs: Vec<_> = metadata_keys.into_iter().zip(metadata_values.into_iter().filter_map(|val| val)).collect();
+        self.metadata
+            .extend(Self::pair_values(metadata_keys, metadata_values));
+        self.paths.extend_from_slice(paths);
     }
 }
 
@@ -78,7 +80,7 @@ impl Default for LibraryState {
     fn default() -> Self {
         Self {
             state: TableState::default(),
-            active_part: ActivePart::default(),
+            focused_part: FocusedPart::default(),
             group_by_tags: vec!["albumartist".into(), "album".into()],
             children_tags: vec!["tracknumber".into(), "tracktitle".into()],
             children: Vec::new(),
@@ -89,33 +91,45 @@ impl Default for LibraryState {
 impl Scroll for LibraryState {
     fn scroll(&mut self, delta: i32) {
         let u_delta = delta.unsigned_abs() as usize;
-        let n_rows = self.children.len();
-        match self.state.selected() {
+        let (n_rows, state) = match self.focused_part {
+            FocusedPart::Groups => (self.children.len(), &mut self.state),
+            FocusedPart::Child(i) => (
+                self.children[i].group.paths.len(),
+                &mut self.children[i].state,
+            ),
+        };
+        match state.selected() {
             Some(r) => {
                 if delta < 0 {
                     if r >= u_delta {
-                        self.state.scroll_up_by(u_delta as u16);
+                        state.scroll_up_by(u_delta as u16);
                     } else {
-                        self.state.select(Some(n_rows - (u_delta - r)));
+                        state.select(Some(n_rows - (u_delta - r)));
                     }
                 } else {
                     if r + u_delta < n_rows {
-                        self.state.scroll_down_by(u_delta as u16);
+                        state.scroll_down_by(u_delta as u16);
                     } else {
-                        self.state.select(Some(u_delta - (n_rows - r)));
+                        state.select(Some(u_delta - (n_rows - r)));
                     }
                 }
             }
-            None => self.state.select_first(),
+            None => state.select_first(),
         };
     }
 
     fn scroll_to_top(&mut self) {
-        self.state.select_first();
+        match self.focused_part {
+            FocusedPart::Groups => self.state.select_first(),
+            FocusedPart::Child(i) => self.children[i].state.select_first(),
+        }
     }
 
     fn scroll_to_bottom(&mut self) {
-        self.state.select_last();
+        match self.focused_part {
+            FocusedPart::Groups => self.state.select_last(),
+            FocusedPart::Child(i) => self.children[i].state.select_last(),
+        }
     }
 }
 
@@ -124,7 +138,7 @@ impl LibraryState {
         self.children.clear();
         for (id_comb, group) in grouped_songs {
             let child = LibraryChildState {
-                state: ListState::default(),
+                state: TableState::default(),
                 id_comb,
                 group,
             };
@@ -141,5 +155,33 @@ impl LibraryState {
 
     pub fn selected_child_mut(&mut self) -> Option<&mut LibraryChildState> {
         self.state.selected().map(|i| &mut self.children[i])
+    }
+
+    pub fn selected_songs(&self) -> Option<&[String]> {
+        match self.focused_part {
+            FocusedPart::Groups => self
+                .selected_child()
+                .map(|child| &child.group.paths)
+                .map(|v| &**v),
+            FocusedPart::Child(i) => self.children[i]
+                .state
+                .selected()
+                .map(|j| &self.children[i].group.paths[j..=j]),
+        }
+    }
+
+    pub fn focus_left(&mut self) {
+        if let Some(i) = self.state.selected() {
+            self.state.select(Some(i));
+            self.children[i].state.select(None);
+        }
+        self.focused_part = FocusedPart::Groups;
+    }
+
+    pub fn focus_right(&mut self) {
+        if let Some(i) = self.state.selected() {
+            self.children[i].state.select_first();
+            self.focused_part = FocusedPart::Child(i);
+        }
     }
 }
