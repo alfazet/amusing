@@ -32,6 +32,7 @@ pub enum Update {
     QueueScroll(i32),
     QueueScrollToTop,
     QueueScrollToBottom,
+    QueueStartSearch,
     LibraryScroll(i32),
     LibraryScrollToTop,
     LibraryScrollToBottom,
@@ -65,6 +66,7 @@ fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> 
         Key::Char('d') => Some(Message::Update(Update::Remove)),
         Key::Delete => Some(Message::Update(Update::Clear)),
         Key::Enter => Some(Message::Update(Update::Play)),
+        Key::Char('/') => Some(Message::Update(Update::QueueStartSearch)),
         _ => None,
     }
 }
@@ -132,7 +134,7 @@ pub fn update_library(app: &mut App) -> Result<()> {
 }
 
 pub fn update_app(app: &mut App, msg: Message) {
-    app.status_msg = None;
+    let _ = app.status_msg.take();
     let res = match msg {
         Message::SwitchScreen(screen) => {
             app.screen = screen;
@@ -154,6 +156,17 @@ pub fn update_app(app: &mut App, msg: Message) {
             }
             Update::QueueScrollToBottom => {
                 app.queue_state.scroll_to_bottom();
+                Ok(())
+            }
+            Update::QueueStartSearch => {
+                app.queue_state.search_on();
+                let _ = app
+                    .queue_state
+                    .search
+                    .as_ref()
+                    .unwrap()
+                    .tx_pattern
+                    .send(String::from("nevv"));
                 Ok(())
             }
             Update::LibraryScroll(delta) => {
@@ -180,11 +193,11 @@ pub fn update_app(app: &mut App, msg: Message) {
                 Some(songs) => app.connection.add_to_queue(songs),
                 None => Ok(()),
             },
-            Update::Play => match app.queue_state.state.selected() {
+            Update::Play => match app.queue_state.unordered_selected() {
                 Some(i) => app.connection.play(app.musing_state.queue[i].id),
                 None => Ok(()),
             },
-            Update::Remove => match app.queue_state.state.selected() {
+            Update::Remove => match app.queue_state.unordered_selected() {
                 Some(i) => app.connection.remove(app.musing_state.queue[i].id),
                 None => Ok(()),
             },
@@ -226,9 +239,6 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     if let Some(current) = delta.current {
         app.musing_state.current = current;
     }
-    // if delta.current.is_some() {
-    //     app.musing_state.current = delta.current;
-    // }
     if delta.timer.is_some() {
         app.musing_state.timer = delta.timer;
     }

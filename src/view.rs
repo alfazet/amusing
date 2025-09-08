@@ -117,12 +117,10 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_queue_screen(app: &mut App, frame: &mut Frame) {
-    let queue = &app.musing_state.queue;
-    let metadata = &app.queue_state.metadata;
+    let metadata = app.queue_state.ordered_metadata();
     let displayed_data: &Vec<_> = &metadata
         .iter()
-        .zip(queue.iter())
-        .map(|(m, song)| {
+        .map(|m| {
             app.queue_state
                 .displayed_tags
                 .iter()
@@ -157,7 +155,11 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
             let mut v = t.0.clone();
             v.push(t.1);
             log::error!("adding a row with {} columns", v.len());
-            if app.musing_state.current.is_some_and(|cur| cur == i as u64) {
+            if app
+                .musing_state
+                .current
+                .is_some_and(|cur| cur == app.queue_state.real_i(i) as u64)
+            {
                 Row::new(v).style(Style::default().fg(Color::Blue))
             } else {
                 Row::new(v)
@@ -180,7 +182,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .widths(
             (1..=(&(app.queue_state.displayed_tags.len() as u16) + 1))
                 .rev()
-                .map(|i| Constraint::Fill(i)),
+                .map(Constraint::Fill),
         )
         .block(block)
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
