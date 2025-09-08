@@ -2,12 +2,27 @@ use anyhow::Result;
 use ratatui::widgets::TableState;
 use std::collections::HashMap;
 
-use crate::model::common::Scroll;
+use crate::model::common::{Scroll, Search, SearchState};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct QueueState {
     pub state: TableState,
     pub metadata: Vec<HashMap<String, String>>,
+    pub displayed_tags: Vec<String>, // tags to be displayed to the user
+    // pub search: SearchState,
+    // at every search query change sort the queue by the fuzzy comparison score
+    // we're comparing the pattern typed by the user with a string made out of 
+    // concatenating all values of displayed_tags (in the correct order)
+}
+
+impl Default for QueueState {
+    fn default() -> Self {
+        Self {
+            state: TableState::default(),
+            metadata: Vec::new(),
+            displayed_tags: vec!["tracktitle".into(), "artist".into(), "album".into()],
+        }
+    }
 }
 
 impl Scroll for QueueState {

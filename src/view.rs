@@ -119,32 +119,20 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame) {
 fn render_queue_screen(app: &mut App, frame: &mut Frame) {
     let queue = &app.musing_state.queue;
     let metadata = &app.queue_state.metadata;
-    let titles: Vec<_> = metadata
+    let displayed_data: &Vec<_> = &metadata
         .iter()
         .zip(queue.iter())
         .map(|(m, song)| {
-            m.get("tracktitle")
-                .map(|s| s.as_str())
-                .unwrap_or(&song.path)
-                .to_string()
-        })
-        .collect();
-    let artists: Vec<_> = metadata
-        .iter()
-        .map(|m| {
-            m.get("artist")
-                .map(|s| s.as_str())
-                .unwrap_or(constants::UNKNOWN)
-                .to_string()
-        })
-        .collect();
-    let albums: Vec<_> = metadata
-        .iter()
-        .map(|m| {
-            m.get("album")
-                .map(|s| s.as_str())
-                .unwrap_or(constants::UNKNOWN)
-                .to_string()
+            app.queue_state
+                .displayed_tags
+                .iter()
+                .map(|tag| {
+                    m.get(tag)
+                        .map(|s| s.as_str())
+                        .unwrap_or(constants::UNKNOWN)
+                        .to_string()
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     let durations_int: Vec<_> = metadata
@@ -161,10 +149,14 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .map(view_utils::format_time)
         .collect();
 
-    let rows: Vec<_> = izip!(titles, artists, albums, durations)
+    let rows: Vec<_> = displayed_data
+        .iter()
+        .zip(durations)
         .enumerate()
         .map(|(i, t)| {
-            let v = vec![t.0, t.1, t.2, t.3];
+            let mut v = t.0.clone();
+            v.push(t.1);
+            log::error!("adding a row with {} columns", v.len());
             if app.musing_state.current.is_some_and(|cur| cur == i as u64) {
                 Row::new(v).style(Style::default().fg(Color::Blue))
             } else {
@@ -185,12 +177,11 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .padding(Padding::horizontal(1));
     let list = Table::default()
         .rows(rows)
-        .widths(vec![
-            Constraint::Fill(4),
-            Constraint::Fill(3),
-            Constraint::Fill(2),
-            Constraint::Fill(1),
-        ])
+        .widths(
+            (1..=(&(app.queue_state.displayed_tags.len() as u16) + 1))
+                .rev()
+                .map(|i| Constraint::Fill(i)),
+        )
         .block(block)
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
