@@ -196,7 +196,20 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         ])
         .split(frame.area());
     render_header(app, frame, layout[0]);
-    frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state);
+    match &app.queue_state.search {
+        Some(search) => {
+            let search_block = Block::default().borders(Borders::ALL);
+            let search_box =
+                Paragraph::new(format!("Search: {}", search.input.value())).block(search_block);
+            let sublayout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+                .split(layout[1]);
+            frame.render_stateful_widget(list, sublayout[0], &mut app.queue_state.state);
+            frame.render_widget(search_box, sublayout[1]);
+        }
+        None => frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state),
+    }
     render_footer(app, frame, layout[2]);
 }
 

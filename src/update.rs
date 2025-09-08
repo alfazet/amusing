@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as TermEvent};
+use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
     app::{App, AppState, Screen},
@@ -33,6 +34,9 @@ pub enum Update {
     QueueScrollToTop,
     QueueScrollToBottom,
     QueueStartSearch,
+    QueueEndSearch,
+    QueueIdleSearch,
+    QueueUpdateSearch(String),
     LibraryScroll(i32),
     LibraryScrollToTop,
     LibraryScrollToBottom,
@@ -55,23 +59,37 @@ macro_rules! enum_stringify {
     }};
 }
 
-fn translate_key_event_queue(app: &App, ev: event::KeyEvent) -> Option<Message> {
+fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
-    match ev.code {
-        Key::Char('j') | Key::Down => Some(Message::Update(Update::QueueScroll(1))),
-        Key::Char('k') | Key::Up => Some(Message::Update(Update::QueueScroll(-1))),
-        Key::Home => Some(Message::Update(Update::QueueScrollToTop)),
-        Key::End => Some(Message::Update(Update::QueueScrollToBottom)),
-        Key::Char('d') => Some(Message::Update(Update::Remove)),
-        Key::Delete => Some(Message::Update(Update::Clear)),
-        Key::Enter => Some(Message::Update(Update::Play)),
-        Key::Char('/') => Some(Message::Update(Update::QueueStartSearch)),
-        _ => None,
+    match &mut app.queue_state.search {
+        Some(search) if search.active => match ev.code {
+            Key::Esc => Some(Message::Update(Update::QueueIdleSearch)),
+            _ => {
+                let term_ev = TermEvent::Key(ev);
+                search.input.handle_event(&term_ev);
+
+                Some(Message::Update(Update::QueueUpdateSearch(
+                    search.input.value().to_string(),
+                )))
+            }
+        },
+        _ => match ev.code {
+            Key::Char('j') | Key::Down => Some(Message::Update(Update::QueueScroll(1))),
+            Key::Char('k') | Key::Up => Some(Message::Update(Update::QueueScroll(-1))),
+            Key::Home => Some(Message::Update(Update::QueueScrollToTop)),
+            Key::End => Some(Message::Update(Update::QueueScrollToBottom)),
+            Key::Char('d') => Some(Message::Update(Update::Remove)),
+            Key::Delete => Some(Message::Update(Update::Clear)),
+            Key::Enter => Some(Message::Update(Update::Play)),
+            Key::Char('/') => Some(Message::Update(Update::QueueStartSearch)),
+            Key::Esc => Some(Message::Update(Update::QueueEndSearch)),
+            _ => translate_key_event_common(app, ev),
+        },
     }
 }
 
-fn translate_key_event_library(app: &App, ev: event::KeyEvent) -> Option<Message> {
+fn translate_key_event_library(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
     match ev.code {
@@ -82,14 +100,13 @@ fn translate_key_event_library(app: &App, ev: event::KeyEvent) -> Option<Message
         Key::Char('h') | Key::Left => Some(Message::Update(Update::LibraryFocusLeft)),
         Key::Char('l') | Key::Right => Some(Message::Update(Update::LibraryFocusRight)),
         Key::Enter => Some(Message::Update(Update::AddToQueue)),
-        _ => None,
+        _ => translate_key_event_common(app, ev),
     }
 }
 
-pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
+pub fn translate_key_event_common(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
-    // TODO: make bindings configurable (a map (Message,  KeyEvent))
     match ev.code {
         Key::Char('q') => Some(Message::SwitchAppState(AppState::Done)),
         Key::Char('w') => Some(Message::Update(Update::Sequential)),
@@ -112,11 +129,16 @@ pub fn translate_key_event(app: &App, ev: event::KeyEvent) -> Option<Message> {
         Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
         Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
         Key::Char('3') => Some(Message::SwitchScreen(Screen::Library)),
-        _ => match app.screen {
-            Screen::Queue => translate_key_event_queue(app, ev),
-            Screen::Library => translate_key_event_library(app, ev),
-            _ => None,
-        },
+        _ => None,
+    }
+}
+
+pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
+    // TODO: make bindings configurable (a map (Message,  KeyEvent))
+    match app.screen {
+        Screen::Queue => translate_key_event_queue(app, ev),
+        Screen::Library => translate_key_event_library(app, ev),
+        _ => translate_key_event_common(app, ev),
     }
 }
 
@@ -160,13 +182,18 @@ pub fn update_app(app: &mut App, msg: Message) {
             }
             Update::QueueStartSearch => {
                 app.queue_state.search_on();
-                let _ = app
-                    .queue_state
-                    .search
-                    .as_ref()
-                    .unwrap()
-                    .tx_pattern
-                    .send(String::from("nevv"));
+                Ok(())
+            }
+            Update::QueueEndSearch => {
+                app.queue_state.search_off();
+                Ok(())
+            }
+            Update::QueueIdleSearch => {
+                app.queue_state.search_idle();
+                Ok(())
+            }
+            Update::QueueUpdateSearch(pattern) => {
+                app.queue_state.search_update(pattern);
                 Ok(())
             }
             Update::LibraryScroll(delta) => {

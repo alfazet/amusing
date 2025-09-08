@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock, mpsc as std_chan},
 };
+use tui_input::Input as TuiInput;
 
 use crate::model::{
     common::Scroll,
@@ -58,7 +59,8 @@ impl Scroll for QueueState {
     }
 
     fn scroll_to_bottom(&mut self) {
-        self.state.select(Some(self.metadata.len() - 1));
+        self.state
+            .select(Some(self.metadata.len().saturating_sub(1)));
     }
 }
 
@@ -83,6 +85,8 @@ impl QueueState {
         self.search = Some(SearchState {
             tx_pattern,
             result: Arc::clone(&result),
+            input: TuiInput::default(),
+            active: true,
         });
         search::run(list, rx_pattern, result);
     }
@@ -92,7 +96,28 @@ impl QueueState {
         // the sender gets dropped => searching thread finishes
     }
 
+    // end searching but keep the sorted results on screen
+    pub fn search_idle(&mut self) {
+        if let Some(search) = &mut self.search {
+            search.active = false;
+            let _ = search.tx_pattern.send(None);
+        }
+    }
+
+    // send a new pattern to the search thread
+    pub fn search_update(&mut self, pattern: String) {
+        if let Some(search) = &self.search {
+            let _ = search.tx_pattern.send(Some(pattern));
+        }
+    }
+
     // tranlates the "view" i into the "actual" i
+    // TODO: this is bugged, to reprod:
+    // 1. have something in the queue
+    // 2. toggle search
+    // 3. add something
+    // 4. toggle off serach (Esc once), to go into idle search
+    // 5. the new song will be bugged (it will play the first and the highlighting will bug out)
     pub fn real_i(&self, i: usize) -> usize {
         match &self.search {
             Some(search) => {
@@ -120,7 +145,7 @@ impl QueueState {
                 }
                 let max_i = order.into_iter().max().unwrap_or_default();
                 // add any items that weren't there back when we started the search
-                if max_i < self.metadata.len() - 1 {
+                if max_i < self.metadata.len().saturating_sub(1) {
                     for m in &self.metadata[(max_i + 1)..] {
                         ordered.push(m);
                     }

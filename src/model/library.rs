@@ -127,10 +127,12 @@ impl Scroll for LibraryState {
 
     fn scroll_to_bottom(&mut self) {
         match self.focused_part {
-            FocusedPart::Groups => self.state.select(Some(self.children.len() - 1)),
+            FocusedPart::Groups => self
+                .state
+                .select(Some(self.children.len().saturating_sub(1))),
             FocusedPart::Child(i) => {
                 let n = self.children[i].group.paths.len();
-                self.children[i].state.select(Some(n - 1));
+                self.children[i].state.select(Some(n.saturating_sub(1)));
             }
         }
     }
@@ -155,7 +157,7 @@ impl LibraryState {
             self.state.select(Some(
                 self.state
                     .selected()
-                    .map_or(0, |i| i.min(self.children.len() - 1)),
+                    .map_or(0, |i| i.min(self.children.len().saturating_sub(1))),
             ));
         }
         self.focus_left();
