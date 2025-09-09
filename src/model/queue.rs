@@ -7,8 +7,8 @@ use std::{
 use tui_input::Input as TuiInput;
 
 use crate::model::{
-    common::Scroll,
-    search::{self, SearchState},
+    common::{Scroll, Search},
+    search::{self, SearchMessage, SearchState},
 };
 
 #[derive(Debug)]
@@ -64,12 +64,50 @@ impl Scroll for QueueState {
     }
 }
 
-impl QueueState {
-    pub fn search_on(&mut self) {
-        let (tx_pattern, rx_pattern) = std_chan::channel();
+impl Search for QueueState {
+    fn search_on(&mut self) {
+        let (tx, rx) = std_chan::channel();
         let result = Arc::new(RwLock::new((0..self.metadata.len()).collect()));
-        let list: Vec<_> = self
-            .metadata
+        let list = self.metadata_to_repr();
+        self.search = Some(SearchState {
+            tx,
+            result: Arc::clone(&result),
+            input: TuiInput::default(),
+            active: true,
+        });
+        search::run(list, rx, result);
+    }
+
+    fn search_off(&mut self) {
+        let _ = self.search.take();
+        // the sender gets dropped => searching thread finishes
+    }
+
+    // confirm the search query
+    fn search_idle(&mut self) {
+        if let Some(search) = &mut self.search {
+            search.active = false;
+        }
+    }
+
+    // send a new pattern to the search thread
+    fn search_pattern_update(&mut self, pattern: String) {
+        if let Some(search) = &self.search {
+            let _ = search.tx.send(SearchMessage::NewPattern(pattern));
+        }
+    }
+
+    // send a new list to the search thread
+    fn search_list_update(&mut self, list: Vec<String>) {
+        if let Some(search) = &self.search {
+            let _ = search.tx.send(SearchMessage::NewList(list));
+        }
+    }
+}
+
+impl QueueState {
+    pub fn metadata_to_repr(&self) -> Vec<String> {
+        self.metadata
             .iter()
             .map(|m| {
                 let mut repr = String::new();
@@ -79,45 +117,12 @@ impl QueueState {
                     }
                 }
 
-                repr
+                unidecode::unidecode(&repr)
             })
-            .collect();
-        self.search = Some(SearchState {
-            tx_pattern,
-            result: Arc::clone(&result),
-            input: TuiInput::default(),
-            active: true,
-        });
-        search::run(list, rx_pattern, result);
+            .collect()
     }
 
-    pub fn search_off(&mut self) {
-        let _ = self.search.take();
-        // the sender gets dropped => searching thread finishes
-    }
-
-    // end searching but keep the sorted results on screen
-    pub fn search_idle(&mut self) {
-        if let Some(search) = &mut self.search {
-            search.active = false;
-            let _ = search.tx_pattern.send(None);
-        }
-    }
-
-    // send a new pattern to the search thread
-    pub fn search_update(&mut self, pattern: String) {
-        if let Some(search) = &self.search {
-            let _ = search.tx_pattern.send(Some(pattern));
-        }
-    }
-
-    // tranlates the "view" i into the "actual" i
-    // TODO: this is bugged, to reprod:
-    // 1. have something in the queue
-    // 2. toggle search
-    // 3. add something
-    // 4. toggle off serach (Esc once), to go into idle search
-    // 5. the new song will be bugged (it will play the first and the highlighting will bug out)
+    // translates the "view" i into the "actual" i
     pub fn real_i(&self, i: usize) -> usize {
         match &self.search {
             Some(search) => {
@@ -143,13 +148,13 @@ impl QueueState {
                 for m in order.iter().filter_map(|&i| self.metadata.get(i)) {
                     ordered.push(m);
                 }
-                let max_i = order.into_iter().max().unwrap_or_default();
+                // let max_i = order.into_iter().max().unwrap_or_default();
                 // add any items that weren't there back when we started the search
-                if max_i < self.metadata.len().saturating_sub(1) {
-                    for m in &self.metadata[(max_i + 1)..] {
-                        ordered.push(m);
-                    }
-                }
+                // if max_i < self.metadata.len().saturating_sub(1) {
+                //     for m in &self.metadata[(max_i + 1)..] {
+                //         ordered.push(m);
+                //     }
+                // }
 
                 ordered
             }

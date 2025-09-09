@@ -15,8 +15,10 @@ use ratatui::{
 use crate::{
     app::{App, AppState, Screen},
     constants,
-    model::library::FocusedPart,
+    model::{library::FocusedPart, search::SearchState},
 };
+
+const SEARCH_PROMPT: &str = "> ";
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let volume = app.musing_state.volume;
@@ -101,6 +103,18 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(footer, area);
 }
 
+fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &SearchState) {
+    let cursor_pos = search.input.visual_cursor();
+    frame.set_cursor_position((
+        area.x + SEARCH_PROMPT.len() as u16 + cursor_pos as u16 + 1,
+        area.y + 1,
+    ));
+    let search_block = Block::default().borders(Borders::ALL);
+    let search_box =
+        Paragraph::new(format!("{}{}", SEARCH_PROMPT, search.input.value())).block(search_block);
+    frame.render_widget(search_box, area);
+}
+
 fn render_cover_screen(app: &mut App, frame: &mut Frame) {
     // TODO: album cover goes here at some point (render with chafa)
     let layout = Layout::default()
@@ -154,7 +168,6 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         .map(|(i, t)| {
             let mut v = t.0.clone();
             v.push(t.1);
-            log::error!("adding a row with {} columns", v.len());
             if app
                 .musing_state
                 .current
@@ -198,15 +211,12 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
     render_header(app, frame, layout[0]);
     match &app.queue_state.search {
         Some(search) => {
-            let search_block = Block::default().borders(Borders::ALL);
-            let search_box =
-                Paragraph::new(format!("Search: {}", search.input.value())).block(search_block);
             let sublayout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
                 .split(layout[1]);
             frame.render_stateful_widget(list, sublayout[0], &mut app.queue_state.state);
-            frame.render_widget(search_box, sublayout[1]);
+            render_search_box(app, frame, sublayout[1], search);
         }
         None => frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state),
     }
@@ -222,13 +232,12 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
 
     let children: Vec<_> = app
         .library_state
-        .children
+        .ordered_children()
         .iter()
         .map(|child| Row::new(child.id_comb.clone()))
         .collect();
     let children_block = Block::default()
         .borders(Borders::ALL)
-        .title(Line::from("Artists/Albums").cyan())
         .title_alignment(Alignment::Center)
         .padding(Padding::horizontal(1));
     let children_list = Table::default()
@@ -252,7 +261,6 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .unwrap_or_default();
     let songs_block = Block::default()
         .borders(Borders::ALL)
-        .title(Line::from("Songs").cyan())
         .title_alignment(Alignment::Center)
         .padding(Padding::horizontal(1));
     let song_list = Table::default()
@@ -273,7 +281,19 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
         .split(layout[1]);
     render_header(app, frame, layout[0]);
-    frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state);
+    match &app.library_state.search {
+        Some(search) => {
+            let sublayout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+                .split(middle[0]);
+            frame.render_stateful_widget(children_list, sublayout[0], &mut app.library_state.state);
+            render_search_box(app, frame, sublayout[1], search);
+        }
+        None => {
+            frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state)
+        }
+    }
     if let Some(child) = app.library_state.selected_child_mut() {
         frame.render_stateful_widget(song_list, middle[1], &mut child.state);
     }
@@ -293,6 +313,13 @@ pub mod view_utils {
     use super::*;
 
     pub fn format_time(secs: u64) -> String {
-        format!("{:02}:{:02}", (secs / 60).min(99), secs % 60)
+        let h = secs / 3600;
+        let m = (secs - h * 3600) / 60;
+        let s = secs - h * 3600 - m * 60;
+        if h == 0 {
+            format!("{:02}:{:02}", m, s)
+        } else {
+            format!("{:02}:{:02}:{:02}", h, m, s)
+        }
     }
 }
