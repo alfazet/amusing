@@ -57,7 +57,11 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
                     Line::from(format!("[{} {}]", mode, if gapless { 'G' } else { 'g' }))
                         .left_aligned(),
                 ),
-                Cell::from(Line::from(if is_stopped { "" } else { current_title }).centered()),
+                Cell::from(
+                    Line::from(if is_stopped { "" } else { current_title })
+                        .centered()
+                        .style(app.theme.current_title),
+                ),
                 Cell::from(Line::from(format!("Volume: {}", volume)).right_aligned()),
             ]),
             Row::new(vec![

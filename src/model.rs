@@ -4,3 +4,4 @@ pub mod library;
 pub mod musing;
 pub mod queue;
 pub mod search;
+pub mod theme;

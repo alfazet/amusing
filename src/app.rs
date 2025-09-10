@@ -10,6 +10,7 @@ use crate::{
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
         queue::QueueState,
+        theme::Theme,
     },
     update, view,
 };
@@ -37,6 +38,7 @@ pub struct App {
     pub musing_state: MusingState,
     pub queue_state: QueueState,
     pub library_state: LibraryState,
+    pub theme: Theme,
     pub status_msg: Option<String>,
 }
 
@@ -49,6 +51,7 @@ impl App {
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
         let library_state = LibraryState::default();
+        let theme = Theme::default();
         let status_msg = None;
 
         Ok(Self {
@@ -58,6 +61,7 @@ impl App {
             musing_state,
             queue_state,
             library_state,
+            theme,
             status_msg,
         })
     }
