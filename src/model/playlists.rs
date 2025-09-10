@@ -7,8 +7,8 @@ use std::{
 use tui_input::Input as TuiInput;
 
 use crate::model::{
-    common::{FocusedPart, Scroll, Search, SongGroup},
-    search::{self, SearchMessage, SearchState},
+    common::{FocusedPart, Scroll, SongGroup},
+    search::{self, Search, SearchMessage},
 };
 
 #[derive(Debug, Default)]

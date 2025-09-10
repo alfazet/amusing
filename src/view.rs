@@ -16,8 +16,8 @@ use crate::{
     app::{App, AppState, Screen},
     constants,
     model::{
-        common::{FocusedPart, Search},
-        search::SearchState,
+        common::FocusedPart,
+        search::{Search, SearchState},
     },
 };
 
@@ -106,18 +106,18 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(footer, area);
 }
 
-fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &SearchState) {
+fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &Search) {
     let cursor_pos = search.input.visual_cursor();
     frame.set_cursor_position((
         area.x + SEARCH_PROMPT.len() as u16 + cursor_pos as u16 + 1,
         area.y + 1,
     ));
-    let search_block = if search.active {
+    let search_block = if let SearchState::Idle = search.state {
+        Block::default().borders(Borders::ALL)
+    } else {
         Block::default()
             .borders(Borders::ALL)
             .border_style(Color::Blue)
-    } else {
-        Block::default().borders(Borders::ALL)
     };
     let search_box =
         Paragraph::new(format!("{}{}", SEARCH_PROMPT, search.input.value())).block(search_block);
@@ -180,7 +180,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
             if app
                 .musing_state
                 .current
-                .is_some_and(|cur| cur == app.queue_state.real_i(i) as u64)
+                .is_some_and(|cur| cur == app.queue_state.search.real_i(i) as u64)
             {
                 Row::new(v).style(Style::default().fg(Color::Blue))
             } else {
@@ -218,8 +218,12 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
         ])
         .split(frame.area());
     render_header(app, frame, layout[0]);
-    match &app.queue_state.search {
-        Some(search) => {
+    let search = &app.queue_state.search;
+    match search.state {
+        SearchState::Off => {
+            frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state)
+        }
+        _ => {
             let sublayout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
@@ -227,7 +231,6 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
             frame.render_stateful_widget(list, sublayout[0], &mut app.queue_state.state);
             render_search_box(app, frame, sublayout[1], search);
         }
-        None => frame.render_stateful_widget(list, layout[1], &mut app.queue_state.state),
     }
     render_footer(app, frame, layout[2]);
 }
@@ -259,9 +262,9 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .library_state
         .selected_child()
         .map(|child| {
-            let group = &child.group;
+            let group = child.ordered_group();
             let mut titles = Vec::new();
-            for (meta, path) in group.metadata.iter().zip(group.paths.iter()) {
+            for (meta, path) in group {
                 titles.push(meta.get("tracktitle").unwrap_or(path).to_string());
             }
 
@@ -290,21 +293,37 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
         .split(layout[1]);
     render_header(app, frame, layout[0]);
-    match &app.library_state.search {
-        Some(search) => {
+    let lhs_search = &app.library_state.search;
+    match lhs_search.state {
+        SearchState::Off => {
+            frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state)
+        }
+        _ => {
             let sublayout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
                 .split(middle[0]);
             frame.render_stateful_widget(children_list, sublayout[0], &mut app.library_state.state);
-            render_search_box(app, frame, sublayout[1], search);
-        }
-        None => {
-            frame.render_stateful_widget(children_list, middle[0], &mut app.library_state.state)
+            render_search_box(app, frame, sublayout[1], lhs_search);
         }
     }
-    if let Some(child) = app.library_state.selected_child_mut() {
-        frame.render_stateful_widget(song_list, middle[1], &mut child.state);
+    if let Some(child) = app.library_state.selected_child() {
+        let rhs_search = &child.search;
+        match rhs_search.state {
+            SearchState::Off => {
+                let state = &mut app.library_state.selected_child_mut().unwrap().state;
+                frame.render_stateful_widget(song_list, middle[1], state);
+            }
+            _ => {
+                let sublayout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+                    .split(middle[1]);
+                render_search_box(app, frame, sublayout[1], rhs_search);
+                let state = &mut app.library_state.selected_child_mut().unwrap().state;
+                frame.render_stateful_widget(song_list, sublayout[0], state);
+            }
+        }
     }
     render_footer(app, frame, layout[2]);
 }

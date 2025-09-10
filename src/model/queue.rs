@@ -7,8 +7,8 @@ use std::{
 use tui_input::Input as TuiInput;
 
 use crate::model::{
-    common::{Scroll, Search},
-    search::{self, SearchMessage, SearchState},
+    common::Scroll,
+    search::{self, Search, SearchMessage, SearchState},
 };
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub struct QueueState {
     pub state: TableState,
     pub metadata: Vec<HashMap<String, String>>,
     pub displayed_tags: Vec<String>, // tags to be displayed to the user
-    pub search: Option<SearchState>,
+    pub search: Search,
 }
 
 impl Default for QueueState {
@@ -25,7 +25,7 @@ impl Default for QueueState {
             state: TableState::default(),
             metadata: Vec::new(),
             displayed_tags: vec!["tracktitle".into(), "artist".into(), "album".into()],
-            search: None,
+            search: Search::default(),
         }
     }
 }
@@ -64,62 +64,16 @@ impl Scroll for QueueState {
     }
 }
 
-impl Search for QueueState {
-    fn search_on(&mut self) {
-        let (tx, rx) = std_chan::channel();
-        let result = Arc::new(RwLock::new((0..self.metadata.len()).collect()));
-        let list = self.metadata_to_repr();
-        self.search = Some(SearchState {
-            tx,
-            result: Arc::clone(&result),
-            input: TuiInput::default(),
-            active: true,
-        });
-        search::run(list, rx, result);
-    }
-
-    fn search_off(&mut self) {
-        let _ = self.search.take();
-        // the sender gets dropped => searching thread finishes
-    }
-
-    // confirm the search query
-    fn search_idle(&mut self) {
-        if let Some(search) = &mut self.search {
-            search.active = false;
-        }
-    }
-
-    // send a new pattern to the search thread
-    fn search_pattern_update(&mut self, pattern: String) {
-        if let Some(search) = &self.search {
-            let _ = search.tx.send(SearchMessage::NewPattern(pattern));
-        }
-    }
-
-    // send a new list to the search thread
-    fn search_list_update(&mut self, list: Vec<String>) {
-        if let Some(search) = &self.search {
-            let _ = search.tx.send(SearchMessage::NewList(list));
-        }
-    }
-
-    fn real_i(&self, i: usize) -> usize {
-        match &self.search {
-            Some(search) => {
-                let order = search.result.read().unwrap();
-                (*order).get(i).copied().unwrap_or_default()
-            }
-            None => i,
-        }
-    }
-
-    fn unordered_selected(&self) -> Option<usize> {
-        self.state.selected().map(|i| self.real_i(i))
-    }
-}
-
 impl QueueState {
+    pub fn search_on(&mut self) {
+        self.scroll_to_top();
+        self.search.on(self.metadata_to_repr());
+    }
+
+    pub fn unordered_selected(&self) -> Option<usize> {
+        self.state.selected().map(|i| self.search.real_i(i))
+    }
+
     pub fn metadata_to_repr(&self) -> Vec<String> {
         self.metadata
             .iter()
@@ -137,25 +91,19 @@ impl QueueState {
     }
 
     pub fn ordered_metadata(&self) -> Vec<&HashMap<String, String>> {
-        match &self.search {
-            Some(search) => {
+        let search = &self.search;
+        match search.state {
+            SearchState::Off => self.metadata.iter().collect(),
+            _ => {
                 let mut ordered = Vec::with_capacity(self.metadata.len());
                 // clone not to hold up the guard
                 let order = { search.result.read().unwrap().clone() };
                 for m in order.iter().filter_map(|&i| self.metadata.get(i)) {
                     ordered.push(m);
                 }
-                // let max_i = order.into_iter().max().unwrap_or_default();
-                // add any items that weren't there back when we started the search
-                // if max_i < self.metadata.len().saturating_sub(1) {
-                //     for m in &self.metadata[(max_i + 1)..] {
-                //         ordered.push(m);
-                //     }
-                // }
 
                 ordered
             }
-            None => self.metadata.iter().collect(),
         }
     }
 }

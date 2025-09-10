@@ -7,8 +7,8 @@ use std::{
 use tui_input::Input as TuiInput;
 
 use crate::model::{
-    common::{FocusedPart, Scroll, Search, SongGroup},
-    search::{self, SearchMessage, SearchState},
+    common::{FocusedPart, Scroll, SongGroup},
+    search::{self, Search, SearchMessage, SearchState},
 };
 
 #[derive(Debug, Default)]
@@ -16,6 +16,7 @@ pub struct LibraryChildState {
     pub state: TableState,
     pub id_comb: Vec<String>, // the combination of tags that identifies these songs
     pub group: SongGroup,
+    pub search: Search,
 }
 
 #[derive(Debug)]
@@ -25,7 +26,7 @@ pub struct LibraryState {
     pub group_by_tags: Vec<String>,
     pub children_tags: Vec<String>,
     pub children: Vec<LibraryChildState>, // grouped collections of songs
-    pub search: Option<SearchState>,
+    pub search: Search,
 }
 
 impl SongGroup {
@@ -71,7 +72,53 @@ impl SongGroup {
     }
 }
 
-// impl Search for LibraryChildState {}
+impl LibraryChildState {
+    pub fn search_on(&mut self) {
+        self.state.select_first();
+        self.search.on(self.songs_to_repr());
+    }
+
+    pub fn unordered_selected(&self) -> Option<usize> {
+        self.state.selected().map(|i| self.search.real_i(i))
+    }
+
+    pub fn songs_to_repr(&self) -> Vec<String> {
+        self.group
+            .metadata
+            .iter()
+            .map(|m| {
+                let repr = m.get("tracktitle");
+                repr.map(|s| unidecode::unidecode(s)).unwrap_or_default()
+            })
+            .collect()
+    }
+
+    pub fn ordered_group(&self) -> Vec<(&HashMap<String, String>, &String)> {
+        let search = &self.search;
+        match search.state {
+            SearchState::Off => self
+                .group
+                .metadata
+                .iter()
+                .zip(self.group.paths.iter())
+                .collect(),
+            _ => {
+                let mut ordered = Vec::with_capacity(self.group.metadata.len());
+                // clone not to hold up the guard
+                let order = { search.result.read().unwrap().clone() };
+                for i in order.iter() {
+                    if let Some(m) = self.group.metadata.get(*i)
+                        && let Some(path) = self.group.paths.get(*i)
+                    {
+                        ordered.push((m, path));
+                    }
+                }
+
+                ordered
+            }
+        }
+    }
+}
 
 impl Default for LibraryState {
     fn default() -> Self {
@@ -81,7 +128,7 @@ impl Default for LibraryState {
             group_by_tags: vec!["albumartist".into(), "album".into()],
             children_tags: vec!["tracknumber".into(), "tracktitle".into()],
             children: Vec::new(),
-            search: None,
+            search: Search::default(),
         }
     }
 }
@@ -90,7 +137,13 @@ impl Scroll for LibraryState {
     fn scroll(&mut self, delta: i32) {
         let u_delta = delta.unsigned_abs() as usize;
         let (n_rows, state) = match self.focused_part {
-            FocusedPart::Groups => (self.children.len(), &mut self.state),
+            FocusedPart::Groups => {
+                if let Some(child) = self.selected_child_mut() {
+                    child.search.off();
+                }
+
+                (self.children.len(), &mut self.state)
+            }
             FocusedPart::Child(i) => (
                 self.children[i].group.paths.len(),
                 &mut self.children[i].state,
@@ -136,62 +189,16 @@ impl Scroll for LibraryState {
     }
 }
 
-impl Search for LibraryState {
-    fn search_on(&mut self) {
-        let (tx, rx) = std_chan::channel();
-        let result = Arc::new(RwLock::new((0..self.children.len()).collect()));
-        let list = self.children_to_repr();
-        self.search = Some(SearchState {
-            tx,
-            result: Arc::clone(&result),
-            input: TuiInput::default(),
-            active: true,
-        });
-        search::run(list, rx, result);
-    }
-
-    fn search_off(&mut self) {
-        let _ = self.search.take();
-        // the sender gets dropped => searching thread finishes
-    }
-
-    // confirm the search query
-    fn search_idle(&mut self) {
-        if let Some(search) = &mut self.search {
-            search.active = false;
-        }
-    }
-
-    // send a new pattern to the search thread
-    fn search_pattern_update(&mut self, pattern: String) {
-        if let Some(search) = &self.search {
-            let _ = search.tx.send(SearchMessage::NewPattern(pattern));
-        }
-    }
-
-    // send a new list to the search thread
-    fn search_list_update(&mut self, list: Vec<String>) {
-        if let Some(search) = &self.search {
-            let _ = search.tx.send(SearchMessage::NewList(list));
-        }
-    }
-
-    fn real_i(&self, i: usize) -> usize {
-        match &self.search {
-            Some(search) => {
-                let order = search.result.read().unwrap();
-                (*order).get(i).copied().unwrap_or_default()
-            }
-            None => i,
-        }
-    }
-
-    fn unordered_selected(&self) -> Option<usize> {
-        self.state.selected().map(|i| self.real_i(i))
-    }
-}
-
 impl LibraryState {
+    pub fn search_on(&mut self) {
+        self.scroll_to_top();
+        self.search.on(self.children_to_repr());
+    }
+
+    pub fn unordered_selected(&self) -> Option<usize> {
+        self.state.selected().map(|i| self.search.real_i(i))
+    }
+
     pub fn children_to_repr(&self) -> Vec<String> {
         self.children
             .iter()
@@ -213,6 +220,7 @@ impl LibraryState {
                 state: TableState::default(),
                 id_comb,
                 group,
+                search: Search::default(),
             };
             self.children.push(child);
         }
@@ -245,8 +253,7 @@ impl LibraryState {
                 .map(|child| &child.group.paths)
                 .map(|v| &**v),
             FocusedPart::Child(i) => self.children[i]
-                .state
-                .selected()
+                .unordered_selected()
                 .map(|j| &self.children[i].group.paths[j..=j]),
         }
     }
@@ -254,7 +261,7 @@ impl LibraryState {
     pub fn focus_left(&mut self) {
         if let Some(i) = self.state.selected() {
             self.state.select(Some(i));
-            let real_i = self.real_i(i);
+            let real_i = self.search.real_i(i);
             self.children[real_i].state.select(None);
         }
         self.focused_part = FocusedPart::Groups;
@@ -262,15 +269,17 @@ impl LibraryState {
 
     pub fn focus_right(&mut self) {
         if let Some(i) = self.state.selected() {
-            let real_i = self.real_i(i);
+            let real_i = self.search.real_i(i);
             self.children[real_i].state.select_first();
             self.focused_part = FocusedPart::Child(real_i);
         }
     }
 
     pub fn ordered_children(&self) -> Vec<&LibraryChildState> {
-        match &self.search {
-            Some(search) => {
+        let search = &self.search;
+        match search.state {
+            SearchState::Off => self.children.iter().collect(),
+            _ => {
                 let mut ordered = Vec::with_capacity(self.children.len());
                 // clone not to hold up the guard
                 let order = { search.result.read().unwrap().clone() };
@@ -280,7 +289,6 @@ impl LibraryState {
 
                 ordered
             }
-            None => self.children.iter().collect(),
         }
     }
 }

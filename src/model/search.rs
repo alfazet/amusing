@@ -12,31 +12,64 @@ pub enum SearchMessage {
     NewList(Vec<String>),
 }
 
-#[derive(Debug)]
-pub struct SearchState {
-    pub tx: std_chan::Sender<SearchMessage>,
-    pub result: Arc<RwLock<Vec<usize>>>,
-    pub input: TuiInput,
-    pub active: bool,
+#[derive(Debug, Default)]
+pub enum SearchState {
+    #[default]
+    Off,
+    On,
+    Idle,
 }
 
-impl SearchState {
-    pub fn new(list: Vec<String>) -> Self {
+#[derive(Debug, Default)]
+pub struct Search {
+    pub tx: Option<std_chan::Sender<SearchMessage>>,
+    pub result: Arc<RwLock<Vec<usize>>>,
+    pub input: TuiInput,
+    pub state: SearchState,
+}
+
+impl Search {
+    pub fn on(&mut self, list: Vec<String>) {
+        // ensure that the old search thread ends
+        self.off();
         let (tx, rx) = std_chan::channel();
         let result = Arc::new(RwLock::new((0..list.len()).collect()));
-        // sent off to another thread
-        run(list, rx, Arc::clone(&result));
+        self.tx = Some(tx);
+        self.result = Arc::clone(&result);
+        self.state = SearchState::On;
+        run(list, rx, result);
+    }
 
-        SearchState {
-            tx,
-            result,
-            input: TuiInput::default(),
-            active: true,
-        }
+    pub fn off(&mut self) {
+        let _ = self.tx.take();
+        self.input = TuiInput::default();
+        self.state = SearchState::Off;
     }
 
     pub fn idle(&mut self) {
+        self.state = SearchState::Idle;
+    }
 
+    pub fn pattern_update(&self, pattern: String) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(SearchMessage::NewPattern(pattern));
+        }
+    }
+
+    pub fn list_update(&self, list: Vec<String>) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(SearchMessage::NewList(list));
+        }
+    }
+
+    pub fn real_i(&self, i: usize) -> usize {
+        match &self.tx {
+            Some(_) => {
+                let order = self.result.read().unwrap();
+                (*order).get(i).copied().unwrap_or_default()
+            }
+            None => i,
+        }
     }
 }
 
