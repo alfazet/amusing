@@ -27,7 +27,6 @@ pub enum Screen {
     Cover,
     Queue,
     Library,
-    Playlists,
 }
 
 #[derive(Debug)]

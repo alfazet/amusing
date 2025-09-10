@@ -185,10 +185,7 @@ pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message
         Screen::Queue => translate_key_event_queue(app, ev),
         Screen::Library => match app.library_state.focused_part {
             FocusedPart::Groups => translate_key_event_library_groups(app, ev),
-            FocusedPart::Child(i) => {
-                let i = app.library_state.search.real_i(i);
-                translate_key_event_library_child(app, ev, i)
-            }
+            FocusedPart::Child(i) => translate_key_event_library_child(app, ev, i),
         },
         _ => translate_key_event_common(app, ev),
     }
@@ -250,7 +247,6 @@ pub fn update_app(app: &mut App, msg: Message) {
                     Screen::Library => match app.library_state.focused_part {
                         FocusedPart::Groups => app.library_state.search_on(),
                         FocusedPart::Child(i) => {
-                            let i = app.library_state.search.real_i(i);
                             app.library_state.children[i].search_on();
                         }
                     },
@@ -264,7 +260,6 @@ pub fn update_app(app: &mut App, msg: Message) {
                     Screen::Library => match app.library_state.focused_part {
                         FocusedPart::Groups => app.library_state.search.off(),
                         FocusedPart::Child(i) => {
-                            let i = app.library_state.search.real_i(i);
                             app.library_state.children[i].search.off();
                         }
                     },
@@ -278,7 +273,6 @@ pub fn update_app(app: &mut App, msg: Message) {
                     Screen::Library => match app.library_state.focused_part {
                         FocusedPart::Groups => app.library_state.search.idle(),
                         FocusedPart::Child(i) => {
-                            let i = app.library_state.search.real_i(i);
                             app.library_state.children[i].search.idle();
                         }
                     },
@@ -292,7 +286,6 @@ pub fn update_app(app: &mut App, msg: Message) {
                     Screen::Library => match app.library_state.focused_part {
                         FocusedPart::Groups => app.library_state.search.pattern_update(pattern),
                         FocusedPart::Child(i) => {
-                            let i = app.library_state.search.real_i(i);
                             app.library_state.children[i].search.pattern_update(pattern);
                         }
                     },
@@ -303,7 +296,6 @@ pub fn update_app(app: &mut App, msg: Message) {
             AppUpdate::FocusLeft => {
                 match app.screen {
                     Screen::Library => app.library_state.focus_left(),
-                    Screen::Playlists => (),
                     _ => (),
                 }
                 Ok(())
@@ -311,7 +303,6 @@ pub fn update_app(app: &mut App, msg: Message) {
             AppUpdate::FocusRight => {
                 match app.screen {
                     Screen::Library => app.library_state.focus_right(),
-                    Screen::Playlists => (),
                     _ => (),
                 }
                 Ok(())
@@ -355,9 +346,6 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     }
     if let Some(gapless) = delta.gapless {
         app.musing_state.gapless = gapless;
-    }
-    if let Some(playlists) = delta.playlists {
-        app.musing_state.playlists = playlists;
     }
     if let Some(devices) = delta.devices {
         app.musing_state.devices = devices;

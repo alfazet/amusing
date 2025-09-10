@@ -328,15 +328,12 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
     render_footer(app, frame, layout[2]);
 }
 
-fn render_playlist_screen(app: &mut App, frame: &mut Frame) {}
-
 pub fn render(app: &mut App, frame: &mut Frame) {
     // TODO: add theming (make a view struct with the theme)
     match app.screen {
         Screen::Cover => render_cover_screen(app, frame),
         Screen::Queue => render_queue_screen(app, frame),
         Screen::Library => render_library_screen(app, frame),
-        Screen::Playlists => render_playlist_screen(app, frame),
     }
 }
 
