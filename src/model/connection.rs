@@ -9,7 +9,7 @@ use std::{
 use crate::{
     constants,
     model::{
-        library::SongGroup,
+        common::SongGroup,
         musing::{MusingState, MusingStateDelta},
     },
 };

@@ -103,6 +103,20 @@ impl Search for QueueState {
             let _ = search.tx.send(SearchMessage::NewList(list));
         }
     }
+
+    fn real_i(&self, i: usize) -> usize {
+        match &self.search {
+            Some(search) => {
+                let order = search.result.read().unwrap();
+                (*order).get(i).copied().unwrap_or_default()
+            }
+            None => i,
+        }
+    }
+
+    fn unordered_selected(&self) -> Option<usize> {
+        self.state.selected().map(|i| self.real_i(i))
+    }
 }
 
 impl QueueState {
@@ -120,23 +134,6 @@ impl QueueState {
                 unidecode::unidecode(&repr)
             })
             .collect()
-    }
-
-    // translates the "view" i into the "actual" i
-    pub fn real_i(&self, i: usize) -> usize {
-        match &self.search {
-            Some(search) => {
-                let order = search.result.read().unwrap();
-                (*order).get(i).copied().unwrap_or_default()
-            }
-            None => i,
-        }
-    }
-
-    // returns the currently selected index, but taking into account
-    // the fact that the view may be sorted in a different order
-    pub fn unordered_selected(&self) -> Option<usize> {
-        self.state.selected().map(|i| self.real_i(i))
     }
 
     pub fn ordered_metadata(&self) -> Vec<&HashMap<String, String>> {

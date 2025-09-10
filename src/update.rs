@@ -30,22 +30,15 @@ pub enum Update {
     MusingUpdate,
     Remove,
     Clear,
-    QueueScroll(i32),
-    QueueScrollToTop,
-    QueueScrollToBottom,
-    QueueStartSearch,
-    QueueEndSearch,
-    QueueIdleSearch,
-    QueueUpdateSearch(String),
-    LibraryScroll(i32),
-    LibraryScrollToTop,
-    LibraryScrollToBottom,
-    LibraryFocusLeft,
-    LibraryFocusRight,
-    LibraryStartSearch,
-    LibraryEndSearch,
-    LibraryIdleSearch,
-    LibraryUpdateSearch(String),
+    Scroll(i32),
+    ScrollToTop,
+    ScrollToBottom,
+    FocusLeft,
+    FocusRight,
+    StartSearch,
+    EndSearch,
+    IdleSearch,
+    UpdateSearch(String),
     AddToQueue,
 }
 
@@ -63,31 +56,48 @@ macro_rules! enum_stringify {
     }};
 }
 
+/*
+fn translate_key_event_search(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
+    match ev.code {
+        Key::Enter | Key::Esc => Some(Message::Update(Update::IdleSearch)),
+        _ => {
+            let term_ev = TermEvent::Key(ev);
+            search.input.handle_event(&term_ev);
+
+            Some(Message::Update(Update::UpdateSearch(
+                search.input.value().to_string(),
+            )))
+        }
+    }
+}
+*/
+
 fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
     match &mut app.queue_state.search {
         Some(search) if search.active => match ev.code {
-            Key::Enter | Key::Esc => Some(Message::Update(Update::QueueIdleSearch)),
+            Key::Enter | Key::Esc => Some(Message::Update(Update::IdleSearch)),
             _ => {
                 let term_ev = TermEvent::Key(ev);
                 search.input.handle_event(&term_ev);
 
-                Some(Message::Update(Update::QueueUpdateSearch(
+                Some(Message::Update(Update::UpdateSearch(
                     search.input.value().to_string(),
                 )))
             }
         },
         _ => match ev.code {
-            Key::Char('j') | Key::Down => Some(Message::Update(Update::QueueScroll(1))),
-            Key::Char('k') | Key::Up => Some(Message::Update(Update::QueueScroll(-1))),
-            Key::Home => Some(Message::Update(Update::QueueScrollToTop)),
-            Key::End => Some(Message::Update(Update::QueueScrollToBottom)),
+            // TODO: <C-d>/<C-u>
+            Key::Char('j') | Key::Down => Some(Message::Update(Update::Scroll(1))),
+            Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
+            Key::Home => Some(Message::Update(Update::ScrollToTop)),
+            Key::End => Some(Message::Update(Update::ScrollToBottom)),
             Key::Char('d') => Some(Message::Update(Update::Remove)),
             Key::Delete => Some(Message::Update(Update::Clear)),
             Key::Enter => Some(Message::Update(Update::Play)),
-            Key::Char('/') => Some(Message::Update(Update::QueueStartSearch)),
-            Key::Esc => Some(Message::Update(Update::QueueEndSearch)),
+            Key::Char('/') => Some(Message::Update(Update::StartSearch)),
+            Key::Esc => Some(Message::Update(Update::EndSearch)),
             _ => translate_key_event_common(app, ev),
         },
     }
@@ -98,26 +108,26 @@ fn translate_key_event_library(app: &mut App, ev: event::KeyEvent) -> Option<Mes
 
     match &mut app.library_state.search {
         Some(search) if search.active => match ev.code {
-            Key::Enter | Key::Esc => Some(Message::Update(Update::LibraryIdleSearch)),
+            Key::Enter | Key::Esc => Some(Message::Update(Update::IdleSearch)),
             _ => {
                 let term_ev = TermEvent::Key(ev);
                 search.input.handle_event(&term_ev);
 
-                Some(Message::Update(Update::LibraryUpdateSearch(
+                Some(Message::Update(Update::UpdateSearch(
                     search.input.value().to_string(),
                 )))
             }
         },
         _ => match ev.code {
-            Key::Char('j') | Key::Down => Some(Message::Update(Update::LibraryScroll(1))),
-            Key::Char('k') | Key::Up => Some(Message::Update(Update::LibraryScroll(-1))),
-            Key::Home => Some(Message::Update(Update::LibraryScrollToTop)),
-            Key::End => Some(Message::Update(Update::LibraryScrollToBottom)),
-            Key::Char('h') | Key::Left => Some(Message::Update(Update::LibraryFocusLeft)),
-            Key::Char('l') | Key::Right => Some(Message::Update(Update::LibraryFocusRight)),
+            Key::Char('j') | Key::Down => Some(Message::Update(Update::Scroll(1))),
+            Key::Char('k') | Key::Up => Some(Message::Update(Update::Scroll(-1))),
+            Key::Home => Some(Message::Update(Update::ScrollToTop)),
+            Key::End => Some(Message::Update(Update::ScrollToBottom)),
+            Key::Char('h') | Key::Left => Some(Message::Update(Update::FocusLeft)),
+            Key::Char('l') | Key::Right => Some(Message::Update(Update::FocusRight)),
             Key::Enter => Some(Message::Update(Update::AddToQueue)),
-            Key::Char('/') => Some(Message::Update(Update::LibraryStartSearch)),
-            Key::Esc => Some(Message::Update(Update::LibraryEndSearch)),
+            Key::Char('/') => Some(Message::Update(Update::StartSearch)),
+            Key::Esc => Some(Message::Update(Update::EndSearch)),
             _ => translate_key_event_common(app, ev),
         },
     }
@@ -187,71 +197,82 @@ pub fn update_app(app: &mut App, msg: Message) {
         }
         Message::Update(update) => match update {
             Update::MusingUpdate => update_library(app),
-            Update::QueueScroll(delta) => {
-                app.queue_state.scroll(delta);
+            Update::Scroll(delta) => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.scroll(delta),
+                    Screen::Library => app.library_state.scroll(delta),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueScrollToTop => {
-                app.queue_state.scroll_to_top();
+            Update::ScrollToTop => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.scroll_to_top(),
+                    Screen::Library => app.library_state.scroll_to_top(),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueScrollToBottom => {
-                app.queue_state.scroll_to_bottom();
+            Update::ScrollToBottom => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.scroll_to_bottom(),
+                    Screen::Library => app.library_state.scroll_to_bottom(),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueStartSearch => {
-                app.queue_state.search_on();
-                app.queue_state.scroll_to_top();
+            Update::StartSearch => {
+                match app.screen {
+                    Screen::Queue => {
+                        app.queue_state.scroll_to_top();
+                        app.queue_state.search_on();
+                    }
+                    Screen::Library => {
+                        app.library_state.scroll_to_top();
+                        app.library_state.search_on();
+                    }
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueEndSearch => {
-                app.queue_state.search_off();
+            Update::EndSearch => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.search_off(),
+                    Screen::Library => app.library_state.search_off(),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueIdleSearch => {
-                app.queue_state.search_idle();
+            Update::IdleSearch => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.search_idle(),
+                    Screen::Library => app.library_state.search_idle(),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::QueueUpdateSearch(pattern) => {
-                app.queue_state.search_pattern_update(pattern);
+            Update::UpdateSearch(pattern) => {
+                match app.screen {
+                    Screen::Queue => app.queue_state.search_pattern_update(pattern),
+                    Screen::Library => app.library_state.search_pattern_update(pattern),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::LibraryScroll(delta) => {
-                app.library_state.scroll(delta);
+            Update::FocusLeft => {
+                match app.screen {
+                    Screen::Library => app.library_state.focus_left(),
+                    Screen::Playlists => (),
+                    _ => (),
+                }
                 Ok(())
             }
-            Update::LibraryScrollToTop => {
-                app.library_state.scroll_to_top();
-                Ok(())
-            }
-            Update::LibraryScrollToBottom => {
-                app.library_state.scroll_to_bottom();
-                Ok(())
-            }
-            Update::LibraryFocusLeft => {
-                app.library_state.focus_left();
-                Ok(())
-            }
-            Update::LibraryFocusRight => {
-                app.library_state.focus_right();
-                Ok(())
-            }
-            Update::LibraryStartSearch => {
-                app.library_state.search_on();
-                app.library_state.scroll_to_top();
-                app.library_state.focus_left();
-                Ok(())
-            }
-            Update::LibraryEndSearch => {
-                app.library_state.search_off();
-                Ok(())
-            }
-            Update::LibraryIdleSearch => {
-                app.library_state.search_idle();
-                Ok(())
-            }
-            Update::LibraryUpdateSearch(pattern) => {
-                app.library_state.search_pattern_update(pattern);
+            Update::FocusRight => {
+                match app.screen {
+                    Screen::Library => app.library_state.focus_right(),
+                    Screen::Playlists => (),
+                    _ => (),
+                }
                 Ok(())
             }
             Update::AddToQueue => match app.library_state.selected_songs() {
@@ -293,6 +314,9 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     }
     if let Some(gapless) = delta.gapless {
         app.musing_state.gapless = gapless;
+    }
+    if let Some(playlists) = delta.playlists {
+        app.musing_state.playlists = playlists;
     }
     if let Some(devices) = delta.devices {
         app.musing_state.devices = devices;

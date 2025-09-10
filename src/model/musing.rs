@@ -35,6 +35,7 @@ pub struct MusingState {
     pub volume: u64,
     pub speed: u64,
     pub gapless: bool,
+    pub playlists: Vec<String>,
     pub devices: Vec<String>,
     pub queue: Vec<MusingSong>,
     pub current: Option<u64>,
@@ -48,6 +49,7 @@ pub struct MusingStateDelta {
     pub volume: Option<u64>,
     pub speed: Option<u64>,
     pub gapless: Option<bool>,
+    pub playlists: Option<Vec<String>>,
     pub devices: Option<Vec<String>>,
     pub queue: Option<Vec<MusingSong>>,
     pub current: Option<Option<u64>>,
@@ -148,6 +150,16 @@ impl TryFrom<Value> for MusingStateDelta {
         let volume = object.remove("volume").and_then(|x| x.as_u64());
         let speed = object.remove("speed").and_then(|x| x.as_u64());
         let gapless = object.remove("gapless").and_then(|x| x.as_bool());
+        let playlists = object
+            .remove("playlists")
+            .and_then(|x| {
+                x.as_array().map(|v| {
+                    v.iter()
+                        .map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect::<Option<_>>()
+                })
+            })
+            .flatten();
         let devices = object
             .remove("devices")
             .and_then(|x| {
@@ -190,6 +202,7 @@ impl TryFrom<Value> for MusingStateDelta {
             volume,
             speed,
             gapless,
+            playlists,
             devices,
             queue,
             current,

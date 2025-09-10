@@ -7,22 +7,9 @@ use std::{
 use tui_input::Input as TuiInput;
 
 use crate::model::{
-    common::{Scroll, Search},
+    common::{FocusedPart, Scroll, Search, SongGroup},
     search::{self, SearchMessage, SearchState},
 };
-
-#[derive(Debug, Default)]
-pub enum FocusedPart {
-    #[default]
-    Groups, // "lhs" of the view
-    Child(usize), // "rhs" of the view, which child is focused
-}
-
-#[derive(Debug, Default)]
-pub struct SongGroup {
-    pub metadata: Vec<HashMap<String, String>>,
-    pub paths: Vec<String>,
-}
 
 #[derive(Debug, Default)]
 pub struct LibraryChildState {
@@ -188,6 +175,20 @@ impl Search for LibraryState {
             let _ = search.tx.send(SearchMessage::NewList(list));
         }
     }
+
+    fn real_i(&self, i: usize) -> usize {
+        match &self.search {
+            Some(search) => {
+                let order = search.result.read().unwrap();
+                (*order).get(i).copied().unwrap_or_default()
+            }
+            None => i,
+        }
+    }
+
+    fn unordered_selected(&self) -> Option<usize> {
+        self.state.selected().map(|i| self.real_i(i))
+    }
 }
 
 impl LibraryState {
@@ -227,23 +228,6 @@ impl LibraryState {
             ));
         }
         self.focus_left();
-    }
-
-    // translates the "view" i into the "actual" i
-    fn real_i(&self, i: usize) -> usize {
-        match &self.search {
-            Some(search) => {
-                let order = search.result.read().unwrap();
-                (*order).get(i).copied().unwrap_or_default()
-            }
-            None => i,
-        }
-    }
-
-    // returns the currently selected index, but taking into account
-    // the fact that the view may be sorted in a different order
-    fn unordered_selected(&self) -> Option<usize> {
-        self.state.selected().map(|i| self.real_i(i))
     }
 
     pub fn selected_child(&self) -> Option<&LibraryChildState> {
@@ -293,13 +277,6 @@ impl LibraryState {
                 for child in order.iter().filter_map(|&i| self.children.get(i)) {
                     ordered.push(child);
                 }
-                // let max_i = order.into_iter().max().unwrap_or_default();
-                // add any items that weren't there back when we started the search
-                // if max_i < self.children.len().saturating_sub(1) {
-                //     for m in &self.metadata[(max_i + 1)..] {
-                //         ordered.push(m);
-                //     }
-                // }
 
                 ordered
             }

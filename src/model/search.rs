@@ -20,6 +20,26 @@ pub struct SearchState {
     pub active: bool,
 }
 
+impl SearchState {
+    pub fn new(list: Vec<String>) -> Self {
+        let (tx, rx) = std_chan::channel();
+        let result = Arc::new(RwLock::new((0..list.len()).collect()));
+        // sent off to another thread
+        run(list, rx, Arc::clone(&result));
+
+        SearchState {
+            tx,
+            result,
+            input: TuiInput::default(),
+            active: true,
+        }
+    }
+
+    pub fn idle(&mut self) {
+
+    }
+}
+
 fn compute_ordering(matcher: &SkimMatcherV2, list: &[String], pattern: &str) -> Vec<usize> {
     let mut scores: Vec<_> = list
         .par_iter()

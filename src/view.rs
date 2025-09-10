@@ -15,7 +15,10 @@ use ratatui::{
 use crate::{
     app::{App, AppState, Screen},
     constants,
-    model::{library::FocusedPart, search::SearchState},
+    model::{
+        common::{FocusedPart, Search},
+        search::SearchState,
+    },
 };
 
 const SEARCH_PROMPT: &str = "> ";
@@ -109,7 +112,13 @@ fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &SearchSt
         area.x + SEARCH_PROMPT.len() as u16 + cursor_pos as u16 + 1,
         area.y + 1,
     ));
-    let search_block = Block::default().borders(Borders::ALL);
+    let search_block = if search.active {
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Color::Blue)
+    } else {
+        Block::default().borders(Borders::ALL)
+    };
     let search_box =
         Paragraph::new(format!("{}{}", SEARCH_PROMPT, search.input.value())).block(search_block);
     frame.render_widget(search_box, area);
@@ -300,12 +309,15 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
     render_footer(app, frame, layout[2]);
 }
 
+fn render_playlist_screen(app: &mut App, frame: &mut Frame) {}
+
 pub fn render(app: &mut App, frame: &mut Frame) {
     // TODO: add theming (make a view struct with the theme)
     match app.screen {
         Screen::Cover => render_cover_screen(app, frame),
         Screen::Queue => render_queue_screen(app, frame),
         Screen::Library => render_library_screen(app, frame),
+        Screen::Playlists => render_playlist_screen(app, frame),
     }
 }
 
