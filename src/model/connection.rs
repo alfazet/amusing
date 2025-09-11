@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow, bail};
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value as JsonValue, json};
 use std::{
     collections::HashMap,
     io::{BufReader, prelude::*},
@@ -21,14 +21,14 @@ pub struct Connection {
 }
 
 impl Connection {
-    fn read_msg(&mut self) -> Result<Value> {
+    fn read_msg(&mut self) -> Result<JsonValue> {
         let mut len_bytes: [u8; 4] = [0; 4];
         self.stream.read_exact(&mut len_bytes)?;
         let len = u32::from_be_bytes(len_bytes) as usize;
         let mut bytes = vec![0; len];
         self.stream.read_exact(&mut bytes)?;
         let resp = String::from_utf8(bytes)?;
-        let value = serde_json::from_str::<Value>(&resp)?;
+        let value = serde_json::from_str::<JsonValue>(&resp)?;
         if let Some(obj) = value.as_object()
             && let Some(status) = obj.get("status")
             && status == "err"
@@ -40,7 +40,7 @@ impl Connection {
         Ok(value)
     }
 
-    fn write_msg(&mut self, msg: Value) -> Result<()> {
+    fn write_msg(&mut self, msg: JsonValue) -> Result<()> {
         let msg = msg.to_string();
         let bytes = msg.as_bytes();
         let len_bytes = (bytes.len() as u32).to_be_bytes();
@@ -75,7 +75,7 @@ impl Connection {
             Some(tags) => request.insert("tags".into(), tags.into()),
             None => request.insert("all_tags".into(), true.into()),
         };
-        self.write_msg(Value::from(request))?;
+        self.write_msg(JsonValue::from(request))?;
         let mut res = self.read_msg()?;
         if let Some(obj) = res.as_object_mut()
             && let Some(mut metadata) = obj.remove("metadata")
@@ -112,7 +112,7 @@ impl Connection {
             .map(|tag| json!({"tag": tag}))
             .collect();
         request.insert("comparators".into(), comparators.into());
-        self.write_msg(Value::from(request))?;
+        self.write_msg(JsonValue::from(request))?;
         let mut res = self.read_msg()?;
         if let Some(obj) = res.as_object_mut()
             && let Some(mut values) = obj.remove("values")

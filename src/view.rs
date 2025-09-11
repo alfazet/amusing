@@ -4,7 +4,6 @@ use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
-    style::{Color, Modifier, Style, Styled, Stylize},
     symbols::{border, line},
     text::{Line, Span, Text},
     widgets::{
@@ -68,9 +67,13 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
                 Cell::from(Line::from(format!("[{}]", state)).left_aligned()),
                 Cell::from(
                     Line::from(if is_stopped {
-                        "".into()
+                        Vec::new().into()
                     } else {
-                        format!("{} - {}", current_artist, current_album)
+                        vec![
+                            Span::from(current_artist).style(app.theme.current_artist),
+                            Span::from(" - "),
+                            Span::from(current_album).style(app.theme.current_album),
+                        ]
                     })
                     .centered(),
                 ),
@@ -96,13 +99,15 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             let timer_left = view_utils::format_time(elapsed);
             let timer_right = view_utils::format_time(duration);
             let progress_bar_width = (area.width as usize) - 2 * (timer_left.len() + 1);
-            let done_part_width =
+            let done_width =
                 (progress_bar_width as f32 * (elapsed as f32 / duration as f32)).round() as usize;
 
             Line::from(vec![
                 Span::from(timer_left),
-                format!(" {}", ".".repeat(done_part_width)).cyan(),
-                format!("{} ", ".".repeat(progress_bar_width - done_part_width)).white(),
+                Span::from(format!(" {}", ".".repeat(done_width)))
+                    .style(app.theme.progress_bar_done),
+                Span::from(format!("{} ", ".".repeat(progress_bar_width - done_width)))
+                    .style(app.theme.progress_bar_rest),
                 Span::from(timer_right),
             ])
         }
@@ -121,7 +126,7 @@ fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &Search) 
     } else {
         Block::default()
             .borders(Borders::ALL)
-            .border_style(Color::Blue)
+            .border_style(app.theme.search_box)
     };
     let search_box =
         Paragraph::new(format!("{}{}", SEARCH_PROMPT, search.input.value())).block(search_block);
@@ -186,7 +191,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 .current
                 .is_some_and(|cur| cur == app.queue_state.search.real_i(i) as u64)
             {
-                Row::new(v).style(Style::default().fg(Color::Blue))
+                Row::new(v).style(app.theme.selection_secondary)
             } else {
                 Row::new(v)
             }
@@ -199,7 +204,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 "Total duration: {}",
                 view_utils::format_time(total_duration)
             ))
-            .cyan(),
+            .style(app.theme.total_duration),
         )
         .title_alignment(Alignment::Center)
         .padding(Padding::horizontal(1));
@@ -211,7 +216,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 .map(Constraint::Fill),
         )
         .block(block)
-        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+        .row_highlight_style(app.theme.selection_primary);
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -240,10 +245,9 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_library_screen(app: &mut App, frame: &mut Frame) {
-    let default_highlight = Style::default().add_modifier(Modifier::REVERSED);
     let (child_highlight, song_highlight) = match &app.library_state.focused_part {
-        FocusedPart::Groups => (default_highlight.fg(Color::Blue), default_highlight),
-        FocusedPart::Child(_) => (default_highlight, default_highlight.fg(Color::Blue)),
+        FocusedPart::Groups => (app.theme.selection_primary, app.theme.selection_secondary),
+        FocusedPart::Child(_) => (app.theme.selection_secondary, app.theme.selection_primary),
     };
 
     let children: Vec<_> = app

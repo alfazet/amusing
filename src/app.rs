@@ -44,14 +44,13 @@ pub struct App {
 
 impl App {
     pub fn try_new(config: Config) -> Result<Self> {
-        let Config { port } = config;
+        let Config { port, theme } = config;
         let connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
         let library_state = LibraryState::default();
-        let theme = Theme::default();
         let status_msg = None;
 
         Ok(Self {
