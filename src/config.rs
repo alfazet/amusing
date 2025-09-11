@@ -6,7 +6,10 @@ use std::{
 };
 use toml::{Table, Value as TomlValue};
 
-use crate::{constants, model::theme::Theme};
+use crate::{
+    constants,
+    model::{keybind::Keybind, theme::Theme},
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, author, long_about = None)]
@@ -22,20 +25,22 @@ pub struct CliOptions {
 
 pub struct Config {
     pub port: u16,
+    pub theme: Theme,
+    pub keybind: Keybind,
     pub seek_step: i64,
     pub volume_step: i8,
     pub speed_step: i16,
-    pub theme: Theme,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             port: constants::DEFAULT_PORT,
+            theme: Theme::default(),
+            keybind: Keybind::default(),
             seek_step: constants::DEFAULT_SEEK_STEP,
             volume_step: constants::DEFAULT_VOLUME_STEP,
             speed_step: constants::DEFAULT_SPEED_STEP,
-            theme: Theme::default(),
         }
     }
 }
@@ -56,6 +61,12 @@ impl Config {
                 ("port", TomlValue::Integer(port)) => {
                     config.port = u16::try_from(port)?;
                 }
+                ("theme", TomlValue::Table(theme)) => {
+                    config.theme = Theme::try_from(theme)?;
+                }
+                ("keybind", TomlValue::Table(keybind)) => {
+                    config.keybind = Keybind::try_from(keybind)?;
+                }
                 ("seek_step", TomlValue::Integer(seek_step)) => {
                     config.seek_step = i64::try_from(seek_step)?;
                 }
@@ -64,9 +75,6 @@ impl Config {
                 }
                 ("speed_step", TomlValue::Integer(speed_step)) => {
                     config.speed_step = i16::try_from(speed_step)?;
-                }
-                ("theme", TomlValue::Table(theme)) => {
-                    config.theme = Theme::try_from(theme)?;
                 }
                 (other, _) => bail!("invalid config key `{}`", other),
             }

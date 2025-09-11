@@ -6,6 +6,7 @@ use crate::{
     app::{App, AppState, Screen},
     model::{
         common::{FocusedPart, Scroll},
+        keybind::{Keybind, Binding},
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
         search::SearchState,
@@ -14,10 +15,6 @@ use crate::{
 
 #[derive(Debug)]
 pub enum AppUpdate {
-    Gapless,
-    Random,
-    Sequential,
-    Single,
     Previous,
     Next,
     Pause,
@@ -28,19 +25,23 @@ pub enum AppUpdate {
     Seek(i64),
     Speed(i16),
     Volume(i8),
-    MusingUpdate,
-    Remove,
-    Clear,
     Scroll(i32),
-    ScrollToTop,
-    ScrollToBottom,
+    ScrollTop,
+    ScrollBottom,
     FocusLeft,
     FocusRight,
     StartSearch,
     EndSearch,
     IdleSearch,
-    SearchUpdate(String),
+    UpdateSearch,
     AddToQueue,
+    RemoveFromQueue,
+    ClearQueue,
+    ModeGapless,
+    ModeRandom,
+    ModeSequential,
+    ModeSingle,
+    MusingUpdate,
 }
 
 #[derive(Debug)]
@@ -60,6 +61,10 @@ macro_rules! enum_stringify {
 fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     use event::KeyCode as Key;
 
+    // what to do:
+    // 1. translate the slice of KeyEvents into a Binding
+    // 2. convert the Binding to a Message
+
     let search = &mut app.queue_state.search;
     match search.state {
         SearchState::On => match ev.code {
@@ -68,18 +73,16 @@ fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Messa
                 let term_ev = TermEvent::Key(ev);
                 search.input.handle_event(&term_ev);
 
-                Some(Message::Update(AppUpdate::SearchUpdate(
-                    search.input.value().to_string(),
-                )))
+                Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
         _ => match ev.code {
             Key::Char('j') | Key::Down => Some(Message::Update(AppUpdate::Scroll(1))),
             Key::Char('k') | Key::Up => Some(Message::Update(AppUpdate::Scroll(-1))),
-            Key::Home => Some(Message::Update(AppUpdate::ScrollToTop)),
-            Key::End => Some(Message::Update(AppUpdate::ScrollToBottom)),
-            Key::Char('d') => Some(Message::Update(AppUpdate::Remove)),
-            Key::Delete => Some(Message::Update(AppUpdate::Clear)),
+            Key::Home => Some(Message::Update(AppUpdate::ScrollTop)),
+            Key::End => Some(Message::Update(AppUpdate::ScrollBottom)),
+            Key::Char('d') => Some(Message::Update(AppUpdate::RemoveFromQueue)),
+            Key::Delete => Some(Message::Update(AppUpdate::ClearQueue)),
             Key::Enter => Some(Message::Update(AppUpdate::Play)),
             Key::Char('/') => Some(Message::Update(AppUpdate::StartSearch)),
             Key::Esc => Some(Message::Update(AppUpdate::EndSearch)),
@@ -94,8 +97,8 @@ fn translate_key_event_library_both(app: &mut App, ev: event::KeyEvent) -> Optio
     match ev.code {
         Key::Char('j') | Key::Down => Some(Message::Update(AppUpdate::Scroll(1))),
         Key::Char('k') | Key::Up => Some(Message::Update(AppUpdate::Scroll(-1))),
-        Key::Home => Some(Message::Update(AppUpdate::ScrollToTop)),
-        Key::End => Some(Message::Update(AppUpdate::ScrollToBottom)),
+        Key::Home => Some(Message::Update(AppUpdate::ScrollTop)),
+        Key::End => Some(Message::Update(AppUpdate::ScrollBottom)),
         Key::Char('h') | Key::Left => Some(Message::Update(AppUpdate::FocusLeft)),
         Key::Char('l') | Key::Right => Some(Message::Update(AppUpdate::FocusRight)),
         Key::Enter => Some(Message::Update(AppUpdate::AddToQueue)),
@@ -116,9 +119,7 @@ fn translate_key_event_library_groups(app: &mut App, ev: event::KeyEvent) -> Opt
                 let term_ev = TermEvent::Key(ev);
                 search.input.handle_event(&term_ev);
 
-                Some(Message::Update(AppUpdate::SearchUpdate(
-                    search.input.value().to_string(),
-                )))
+                Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
         _ => translate_key_event_library_both(app, ev),
@@ -140,9 +141,7 @@ fn translate_key_event_library_child(
                 let term_ev = TermEvent::Key(ev);
                 search.input.handle_event(&term_ev);
 
-                Some(Message::Update(AppUpdate::SearchUpdate(
-                    search.input.value().to_string(),
-                )))
+                Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
         _ => translate_key_event_library_both(app, ev),
@@ -154,12 +153,12 @@ pub fn translate_key_event_common(app: &mut App, ev: event::KeyEvent) -> Option<
 
     match ev.code {
         Key::Char('q') => Some(Message::SwitchAppState(AppState::Done)),
-        Key::Char('w') => Some(Message::Update(AppUpdate::Sequential)),
-        Key::Char('e') => Some(Message::Update(AppUpdate::Single)),
-        Key::Char('r') => Some(Message::Update(AppUpdate::Random)),
+        Key::Char('w') => Some(Message::Update(AppUpdate::ModeSequential)),
+        Key::Char('e') => Some(Message::Update(AppUpdate::ModeSingle)),
+        Key::Char('r') => Some(Message::Update(AppUpdate::ModeRandom)),
         Key::Char('P') => Some(Message::Update(AppUpdate::Previous)),
         Key::Char('N') => Some(Message::Update(AppUpdate::Next)),
-        Key::Char('g') => Some(Message::Update(AppUpdate::Gapless)),
+        Key::Char('g') => Some(Message::Update(AppUpdate::ModeGapless)),
         Key::Char(' ') => Some(Message::Update(AppUpdate::Toggle)),
         Key::Char('p') => Some(Message::Update(AppUpdate::Pause)),
         Key::Char('o') => Some(Message::Update(AppUpdate::Resume)),
@@ -224,7 +223,7 @@ pub fn update_app(app: &mut App, msg: Message) {
                 }
                 Ok(())
             }
-            AppUpdate::ScrollToTop => {
+            AppUpdate::ScrollTop => {
                 match app.screen {
                     Screen::Queue => app.queue_state.scroll_to_top(),
                     Screen::Library => app.library_state.scroll_to_top(),
@@ -232,7 +231,7 @@ pub fn update_app(app: &mut App, msg: Message) {
                 }
                 Ok(())
             }
-            AppUpdate::ScrollToBottom => {
+            AppUpdate::ScrollBottom => {
                 match app.screen {
                     Screen::Queue => app.queue_state.scroll_to_bottom(),
                     Screen::Library => app.library_state.scroll_to_bottom(),
@@ -279,12 +278,20 @@ pub fn update_app(app: &mut App, msg: Message) {
                 }
                 Ok(())
             }
-            AppUpdate::SearchUpdate(pattern) => {
+            AppUpdate::UpdateSearch => {
                 match app.screen {
-                    Screen::Queue => app.queue_state.search.pattern_update(pattern),
+                    Screen::Queue => {
+                        let pattern = app.queue_state.search.input.value().to_string();
+                        app.queue_state.search.pattern_update(pattern);
+                    }
                     Screen::Library => match app.library_state.focused_part {
-                        FocusedPart::Groups => app.library_state.search.pattern_update(pattern),
+                        FocusedPart::Groups => {
+                            let pattern = app.library_state.search.input.value().to_string();
+                            app.library_state.search.pattern_update(pattern);
+                        }
                         FocusedPart::Child(i) => {
+                            let child = &app.library_state.children[i];
+                            let pattern = child.search.input.value().to_string();
                             app.library_state.children[i].search.pattern_update(pattern);
                         }
                     },
@@ -314,7 +321,7 @@ pub fn update_app(app: &mut App, msg: Message) {
                 Some(i) => app.connection.play(app.musing_state.queue[i].id),
                 None => Ok(()),
             },
-            AppUpdate::Remove => match app.queue_state.unordered_selected() {
+            AppUpdate::RemoveFromQueue => match app.queue_state.unordered_selected() {
                 Some(i) => app.connection.remove(app.musing_state.queue[i].id),
                 None => Ok(()),
             },

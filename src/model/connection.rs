@@ -265,9 +265,9 @@ impl Connection {
 
     // a convenience function for sending requests that don't have neither
     // any additional arguments nor a meaningful positive response
-    pub fn no_response(&mut self, kind: &str) -> Result<()> {
+    pub fn no_response(&mut self, kind: impl AsRef<str>) -> Result<()> {
         let request = json!({
-            "kind": kind,
+            "kind": kind.as_ref(),
         });
         self.write_msg(request)?;
 

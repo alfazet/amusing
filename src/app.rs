@@ -7,6 +7,7 @@ use crate::{
     event_handler::{self, Event},
     model::{
         connection::Connection,
+        keybind::Keybind,
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
         queue::QueueState,
@@ -33,10 +34,10 @@ pub enum Screen {
 #[derive(Debug)]
 pub struct AppConfig {
     pub theme: Theme,
+    pub keybind: Keybind,
     pub seek_step: i64,
     pub volume_step: i8,
     pub speed_step: i16,
-    // pub keybinds
 }
 
 #[derive(Debug)]
@@ -56,11 +57,11 @@ impl App {
         let Config {
             port,
             theme,
+            keybind,
             seek_step,
             volume_step,
             speed_step,
         } = config;
-
         let connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
@@ -70,6 +71,7 @@ impl App {
         let status_msg = None;
         let config = AppConfig {
             theme,
+            keybind,
             seek_step,
             volume_step,
             speed_step,
