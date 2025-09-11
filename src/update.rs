@@ -74,7 +74,6 @@ fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Messa
             }
         },
         _ => match ev.code {
-            // TODO: <C-d>/<C-u>
             Key::Char('j') | Key::Down => Some(Message::Update(AppUpdate::Scroll(1))),
             Key::Char('k') | Key::Up => Some(Message::Update(AppUpdate::Scroll(-1))),
             Key::Home => Some(Message::Update(AppUpdate::ScrollToTop)),
@@ -165,12 +164,12 @@ pub fn translate_key_event_common(app: &mut App, ev: event::KeyEvent) -> Option<
         Key::Char('p') => Some(Message::Update(AppUpdate::Pause)),
         Key::Char('o') => Some(Message::Update(AppUpdate::Resume)),
         Key::Char('S') => Some(Message::Update(AppUpdate::Stop)),
-        Key::Char('[') => Some(Message::Update(AppUpdate::Seek(-5))),
-        Key::Char(']') => Some(Message::Update(AppUpdate::Seek(5))),
-        Key::Char('<') => Some(Message::Update(AppUpdate::Speed(-5))),
-        Key::Char('>') => Some(Message::Update(AppUpdate::Speed(5))),
-        Key::Char('-') => Some(Message::Update(AppUpdate::Volume(-5))),
-        Key::Char('=') => Some(Message::Update(AppUpdate::Volume(5))),
+        Key::Char('[') => Some(Message::Update(AppUpdate::Seek(-app.config.seek_step))),
+        Key::Char(']') => Some(Message::Update(AppUpdate::Seek(app.config.seek_step))),
+        Key::Char('<') => Some(Message::Update(AppUpdate::Speed(-app.config.speed_step))),
+        Key::Char('>') => Some(Message::Update(AppUpdate::Speed(app.config.speed_step))),
+        Key::Char('-') => Some(Message::Update(AppUpdate::Volume(-app.config.volume_step))),
+        Key::Char('=') => Some(Message::Update(AppUpdate::Volume(app.config.volume_step))),
         Key::Char('U') => Some(Message::Update(AppUpdate::MusingUpdate)),
         Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
         Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),

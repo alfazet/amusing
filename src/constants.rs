@@ -1,4 +1,5 @@
 pub const DEFAULT_PORT: u16 = 2137;
+pub const DEFAULT_SEEK_STEP: i64 = 5;
 pub const DEFAULT_VOLUME_STEP: i8 = 5;
 pub const DEFAULT_SPEED_STEP: i16 = 5;
 pub const DEFAULT_CONFIG_DIR: &str = "amusing";

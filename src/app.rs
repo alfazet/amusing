@@ -31,6 +31,15 @@ pub enum Screen {
 }
 
 #[derive(Debug)]
+pub struct AppConfig {
+    pub theme: Theme,
+    pub seek_step: i64,
+    pub volume_step: i8,
+    pub speed_step: i16,
+    // pub keybinds
+}
+
+#[derive(Debug)]
 pub struct App {
     pub connection: Connection,
     pub app_state: AppState,
@@ -38,13 +47,20 @@ pub struct App {
     pub musing_state: MusingState,
     pub queue_state: QueueState,
     pub library_state: LibraryState,
-    pub theme: Theme,
     pub status_msg: Option<String>,
+    pub config: AppConfig,
 }
 
 impl App {
     pub fn try_new(config: Config) -> Result<Self> {
-        let Config { port, theme } = config;
+        let Config {
+            port,
+            theme,
+            seek_step,
+            volume_step,
+            speed_step,
+        } = config;
+
         let connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
@@ -52,6 +68,12 @@ impl App {
         let queue_state = QueueState::default();
         let library_state = LibraryState::default();
         let status_msg = None;
+        let config = AppConfig {
+            theme,
+            seek_step,
+            volume_step,
+            speed_step,
+        };
 
         Ok(Self {
             connection,
@@ -60,8 +82,8 @@ impl App {
             musing_state,
             queue_state,
             library_state,
-            theme,
             status_msg,
+            config,
         })
     }
 

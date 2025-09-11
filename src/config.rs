@@ -22,6 +22,7 @@ pub struct CliOptions {
 
 pub struct Config {
     pub port: u16,
+    pub seek_step: i64,
     pub volume_step: i8,
     pub speed_step: i16,
     pub theme: Theme,
@@ -31,6 +32,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             port: constants::DEFAULT_PORT,
+            seek_step: constants::DEFAULT_SEEK_STEP,
             volume_step: constants::DEFAULT_VOLUME_STEP,
             speed_step: constants::DEFAULT_SPEED_STEP,
             theme: Theme::default(),
@@ -53,6 +55,15 @@ impl Config {
             match (key.as_str(), val) {
                 ("port", TomlValue::Integer(port)) => {
                     config.port = u16::try_from(port)?;
+                }
+                ("seek_step", TomlValue::Integer(seek_step)) => {
+                    config.seek_step = i64::try_from(seek_step)?;
+                }
+                ("volume_step", TomlValue::Integer(volume_step)) => {
+                    config.volume_step = i8::try_from(volume_step)?;
+                }
+                ("speed_step", TomlValue::Integer(speed_step)) => {
+                    config.speed_step = i16::try_from(speed_step)?;
                 }
                 ("theme", TomlValue::Table(theme)) => {
                     config.theme = Theme::try_from(theme)?;

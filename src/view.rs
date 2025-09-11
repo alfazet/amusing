@@ -59,7 +59,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
                 Cell::from(
                     Line::from(if is_stopped { "" } else { current_title })
                         .centered()
-                        .style(app.theme.current_title),
+                        .style(app.config.theme.current_title),
                 ),
                 Cell::from(Line::from(format!("Volume: {}", volume)).right_aligned()),
             ]),
@@ -70,9 +70,9 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
                         Vec::new().into()
                     } else {
                         vec![
-                            Span::from(current_artist).style(app.theme.current_artist),
+                            Span::from(current_artist).style(app.config.theme.current_artist),
                             Span::from(" - "),
-                            Span::from(current_album).style(app.theme.current_album),
+                            Span::from(current_album).style(app.config.theme.current_album),
                         ]
                     })
                     .centered(),
@@ -105,9 +105,9 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             Line::from(vec![
                 Span::from(timer_left),
                 Span::from(format!(" {}", ".".repeat(done_width)))
-                    .style(app.theme.progress_bar_done),
+                    .style(app.config.theme.progress_bar_done),
                 Span::from(format!("{} ", ".".repeat(progress_bar_width - done_width)))
-                    .style(app.theme.progress_bar_rest),
+                    .style(app.config.theme.progress_bar_rest),
                 Span::from(timer_right),
             ])
         }
@@ -126,7 +126,7 @@ fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &Search) 
     } else {
         Block::default()
             .borders(Borders::ALL)
-            .border_style(app.theme.search_box)
+            .border_style(app.config.theme.search_box)
     };
     let search_box =
         Paragraph::new(format!("{}{}", SEARCH_PROMPT, search.input.value())).block(search_block);
@@ -191,7 +191,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 .current
                 .is_some_and(|cur| cur == app.queue_state.search.real_i(i) as u64)
             {
-                Row::new(v).style(app.theme.selection_secondary)
+                Row::new(v).style(app.config.theme.selection_secondary)
             } else {
                 Row::new(v)
             }
@@ -204,7 +204,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 "Total duration: {}",
                 view_utils::format_time(total_duration)
             ))
-            .style(app.theme.total_duration),
+            .style(app.config.theme.total_duration),
         )
         .title_alignment(Alignment::Center)
         .padding(Padding::horizontal(1));
@@ -216,7 +216,7 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
                 .map(Constraint::Fill),
         )
         .block(block)
-        .row_highlight_style(app.theme.selection_primary);
+        .row_highlight_style(app.config.theme.selection_primary);
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -246,8 +246,14 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
 
 fn render_library_screen(app: &mut App, frame: &mut Frame) {
     let (child_highlight, song_highlight) = match &app.library_state.focused_part {
-        FocusedPart::Groups => (app.theme.selection_primary, app.theme.selection_secondary),
-        FocusedPart::Child(_) => (app.theme.selection_secondary, app.theme.selection_primary),
+        FocusedPart::Groups => (
+            app.config.theme.selection_primary,
+            app.config.theme.selection_secondary,
+        ),
+        FocusedPart::Child(_) => (
+            app.config.theme.selection_secondary,
+            app.config.theme.selection_primary,
+        ),
     };
 
     let children: Vec<_> = app
@@ -337,7 +343,6 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
 }
 
 pub fn render(app: &mut App, frame: &mut Frame) {
-    // TODO: add theming (make a view struct with the theme)
     match app.screen {
         Screen::Cover => render_cover_screen(app, frame),
         Screen::Queue => render_queue_screen(app, frame),
