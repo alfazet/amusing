@@ -35,9 +35,9 @@ pub struct MusingState {
     pub volume: u64,
     pub speed: u64,
     pub gapless: bool,
-    pub devices: Vec<String>,
     pub queue: Vec<MusingSong>,
     pub current: Option<u64>,
+    pub cover_art: Option<String>, // base64 encoded
     pub timer: Option<(u64, u64)>,
 }
 
@@ -48,9 +48,9 @@ pub struct MusingStateDelta {
     pub volume: Option<u64>,
     pub speed: Option<u64>,
     pub gapless: Option<bool>,
-    pub devices: Option<Vec<String>>,
     pub queue: Option<Vec<MusingSong>>,
     pub current: Option<Option<u64>>,
+    pub cover_art: Option<Option<String>>,
     pub timer: Option<(u64, u64)>,
 }
 
@@ -148,16 +148,6 @@ impl TryFrom<Value> for MusingStateDelta {
         let volume = object.remove("volume").and_then(|x| x.as_u64());
         let speed = object.remove("speed").and_then(|x| x.as_u64());
         let gapless = object.remove("gapless").and_then(|x| x.as_bool());
-        let devices = object
-            .remove("devices")
-            .and_then(|x| {
-                x.as_array().map(|v| {
-                    v.iter()
-                        .map(|s| s.as_str().map(|s| s.to_string()))
-                        .collect::<Option<_>>()
-                })
-            })
-            .flatten();
         let queue = object.remove("queue").and_then(|x| {
             x.as_array().and_then(|v| {
                 v.iter()
@@ -168,6 +158,13 @@ impl TryFrom<Value> for MusingStateDelta {
         let current = object
             .remove("current")
             .map(|x| if x.is_null() { None } else { x.as_u64() });
+        let cover_art = object.remove("cover_art").map(|x| {
+            if x.is_null() {
+                None
+            } else {
+                x.as_str().map(|s| s.to_string())
+            }
+        });
         let timer = object.remove("timer").map(|timer| match timer.as_object() {
             Some(timer) => {
                 let elapsed = timer
@@ -190,9 +187,9 @@ impl TryFrom<Value> for MusingStateDelta {
             volume,
             speed,
             gapless,
-            devices,
             queue,
             current,
+            cover_art,
             timer,
         })
     }

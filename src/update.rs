@@ -1,11 +1,13 @@
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as TermEvent, KeyEvent};
+use ratatui_image::{errors::Errors, thread::ResizeResponse};
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
     app::{App, AppState, Screen},
     model::{
         common::{FocusedPart, Scroll},
+        cover_art::CoverArtState,
         keybind::{Binding, Keybind, KeybindNode},
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
@@ -339,7 +341,7 @@ pub fn update_app(app: &mut App, msg: Message) {
     }
 }
 
-pub fn update_state(app: &mut App, delta: MusingStateDelta) {
+pub fn update_state(app: &mut App, delta: MusingStateDelta, cover_art_state: &mut CoverArtState) {
     if let Some(playback_state) = delta.playback_state {
         app.musing_state.playback_state = playback_state;
     }
@@ -355,11 +357,12 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     if let Some(gapless) = delta.gapless {
         app.musing_state.gapless = gapless;
     }
-    if let Some(devices) = delta.devices {
-        app.musing_state.devices = devices;
-    }
     if let Some(current) = delta.current {
         app.musing_state.current = current;
+    }
+    if let Some(cover_art) = delta.cover_art {
+        cover_art_state.replace_art(cover_art.as_ref());
+        app.musing_state.cover_art = cover_art;
     }
     if delta.timer.is_some() {
         app.musing_state.timer = delta.timer;
@@ -386,4 +389,8 @@ pub fn update_queue(app: &mut App) {
         }
         Err(e) => app.status_msg = Some(e.to_string()),
     }
+}
+
+pub fn update_cover_art(cover_art: &mut CoverArtState, resize: ResizeResponse) {
+    let _ = cover_art.state.update_resized_protocol(resize);
 }

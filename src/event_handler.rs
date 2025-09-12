@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as TermEvent};
+use ratatui_image::{errors::Errors, thread::ResizeResponse};
 use std::{
     sync::mpsc as std_chan,
     thread,
@@ -14,6 +15,7 @@ const POLL_TIMEOUT: u64 = 16;
 
 pub enum Event {
     Keypress(event::KeyEvent),
+    CoverArtResize(Result<ResizeResponse, Errors>),
     Refresh,
 }
 

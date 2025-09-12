@@ -11,6 +11,7 @@ use crate::{
     event_handler::{self, Event},
     model::{
         connection::Connection,
+        cover_art::CoverArtState,
         keybind::Keybind,
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
@@ -98,7 +99,11 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
         let (tx_event, rx_event) = std_chan::channel();
+        let tx_resize = tx_event.clone();
+        // clone tx_event and pass it to the picture thread
+        let mut cover_art_state = CoverArtState::try_new(tx_resize)?;
         event_handler::run(tx_event);
+
         update::update_library(self)?;
         loop {
             match rx_event.recv() {
@@ -110,13 +115,16 @@ impl App {
                     }
                     Event::Refresh => {
                         if let Ok(delta) = self.connection.state_delta() {
-                            update::update_state(self, delta);
+                            update::update_state(self, delta, &mut cover_art_state);
                         }
+                    }
+                    Event::CoverArtResize(redraw) => {
+                        update::update_cover_art(&mut cover_art_state, redraw?);
                     }
                 },
                 Err(_) => bail!("event handler crashed"),
             }
-            terminal.draw(|frame| view::render(self, frame))?;
+            terminal.draw(|frame| view::render(self, frame, &mut cover_art_state))?;
             if let AppState::Done = self.app_state {
                 break;
             }

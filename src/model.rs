@@ -1,5 +1,6 @@
 pub mod common;
 pub mod connection;
+pub mod cover_art;
 pub mod keybind;
 pub mod library;
 pub mod musing;
