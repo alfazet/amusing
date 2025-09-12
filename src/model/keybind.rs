@@ -7,8 +7,9 @@ use toml::{Table, Value as TomlValue};
 #[derive(Clone, Copy, Debug, EnumString)]
 #[strum(serialize_all = "snake_case")]
 pub enum Binding {
-    Previous,
+    Quit,
     Next,
+    Previous,
     Pause,
     Resume,
     Toggle,
@@ -30,8 +31,6 @@ pub enum Binding {
     FocusRight,
     StartSearch,
     EndSearch,
-    IdleSearch,
-    UpdateSearch,
     AddToQueue,
     RemoveFromQueue,
     ClearQueue,
@@ -40,7 +39,17 @@ pub enum Binding {
     ModeSequential,
     ModeSingle,
     MusingUpdate,
+    ScreenCover,
+    ScreenQueue,
+    ScreenLibrary,
 }
+
+
+// #[derive(Clone, Copy, Debug, EnumString)]
+// #[strum(serialize_all = "snake_case")]
+// pub enum Context {
+//
+// }
 
 #[derive(Debug)]
 pub enum KeybindNode {
@@ -58,12 +67,57 @@ impl Default for Keybind {
 
         let mut keybind = Keybind(HashMap::new());
         keybind.add_keybind(
-            &[KeyEvent::new(KeyCode::Down, Mods::NONE)],
-            Binding::ScrollDown,
+            &[KeyEvent::new(KeyCode::Char('q'), Mods::NONE)],
+            Binding::Quit,
         );
         keybind.add_keybind(
-            &[KeyEvent::new(KeyCode::Char('j'), Mods::NONE)],
-            Binding::ScrollDown,
+            &[KeyEvent::new(KeyCode::Char('N'), Mods::NONE)],
+            Binding::Next,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('P'), Mods::NONE)],
+            Binding::Previous,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('p'), Mods::NONE)],
+            Binding::Pause,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('o'), Mods::NONE)],
+            Binding::Resume,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char(' '), Mods::NONE)],
+            Binding::Toggle,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('S'), Mods::NONE)],
+            Binding::Stop,
+        );
+        keybind.add_keybind(&[KeyEvent::new(KeyCode::Enter, Mods::NONE)], Binding::Play);
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char(']'), Mods::NONE)],
+            Binding::SeekForwards,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('['), Mods::NONE)],
+            Binding::SeekBackwards,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('>'), Mods::NONE)],
+            Binding::SpeedUp,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('<'), Mods::NONE)],
+            Binding::SpeedDown,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('='), Mods::NONE)],
+            Binding::VolumeUp,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('-'), Mods::NONE)],
+            Binding::VolumeDown,
         );
         keybind.add_keybind(&[KeyEvent::new(KeyCode::Up, Mods::NONE)], Binding::ScrollUp);
         keybind.add_keybind(
@@ -71,8 +125,12 @@ impl Default for Keybind {
             Binding::ScrollUp,
         );
         keybind.add_keybind(
-            &[KeyEvent::new(KeyCode::Char('G'), Mods::NONE)],
-            Binding::ScrollBottom,
+            &[KeyEvent::new(KeyCode::Down, Mods::NONE)],
+            Binding::ScrollDown,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('j'), Mods::NONE)],
+            Binding::ScrollDown,
         );
         keybind.add_keybind(
             &[
@@ -80,6 +138,75 @@ impl Default for Keybind {
                 KeyEvent::new(KeyCode::Char('g'), Mods::NONE),
             ],
             Binding::ScrollTop,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('G'), Mods::NONE)],
+            Binding::ScrollBottom,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('h'), Mods::NONE)],
+            Binding::FocusLeft,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Left, Mods::NONE)],
+            Binding::FocusLeft,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('l'), Mods::NONE)],
+            Binding::FocusRight,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Right, Mods::NONE)],
+            Binding::FocusRight,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Esc, Mods::NONE)],
+            Binding::EndSearch,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('a'), Mods::NONE)],
+            Binding::AddToQueue,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('d'), Mods::NONE)],
+            Binding::RemoveFromQueue,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Delete, Mods::NONE)],
+            Binding::ClearQueue,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('t'), Mods::NONE)],
+            Binding::ModeGapless,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('r'), Mods::NONE)],
+            Binding::ModeRandom,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('e'), Mods::NONE)],
+            Binding::ModeSingle,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('w'), Mods::NONE)],
+            Binding::ModeSequential,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('U'), Mods::NONE)],
+            Binding::MusingUpdate,
+        );
+
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('1'), Mods::NONE)],
+            Binding::ScreenCover,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('2'), Mods::NONE)],
+            Binding::ScreenQueue,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('3'), Mods::NONE)],
+            Binding::ScreenLibrary,
         );
 
         keybind
@@ -145,16 +272,16 @@ impl Keybind {
         }
     }
 
-    pub fn translate(&self, events: &[KeyEvent]) -> Option<Binding> {
+    // Some(Terminal) => this sequence matched something
+    // Some(Transition) => this sequence will potentially match something
+    // None => this sequence doesn't match and won't match anything in the future
+    pub fn translate(&self, events: &[KeyEvent]) -> Option<&KeybindNode> {
         match events.len() {
             0 => None,
-            1 => match self.0.get(&events[0]) {
-                Some(KeybindNode::Terminal(binding)) => Some(*binding),
-                _ => None,
-            },
+            1 => self.0.get(&events[0]),
             _ => match self.0.get(&events[0]) {
                 Some(KeybindNode::Transition(trans)) => trans.translate(&events[1..]),
-                _ => None,
+                other => other,
             },
         }
     }

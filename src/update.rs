@@ -1,12 +1,12 @@
 use anyhow::Result;
-use ratatui::crossterm::event::{self, Event as TermEvent};
+use ratatui::crossterm::event::{self, Event as TermEvent, KeyEvent};
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
     app::{App, AppState, Screen},
     model::{
         common::{FocusedPart, Scroll},
-        keybind::{Keybind, Binding},
+        keybind::{Binding, Keybind, KeybindNode},
         library::LibraryState,
         musing::{MusingState, MusingStateDelta},
         search::SearchState,
@@ -15,13 +15,14 @@ use crate::{
 
 #[derive(Debug)]
 pub enum AppUpdate {
-    Previous,
     Next,
+    Previous,
     Pause,
     Resume,
     Toggle,
     Stop,
     Play,
+    PlayInstant,
     Seek(i64),
     Speed(i16),
     Volume(i8),
@@ -58,134 +59,133 @@ macro_rules! enum_stringify {
     }};
 }
 
-fn translate_key_event_queue(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
-    use event::KeyCode as Key;
-
-    // what to do:
-    // 1. translate the slice of KeyEvents into a Binding
-    // 2. convert the Binding to a Message
-
+fn translate_binding_queue(app: &mut App, binding: Binding) -> Option<Message> {
     let search = &mut app.queue_state.search;
     match search.state {
-        SearchState::On => match ev.code {
-            Key::Enter | Key::Esc => Some(Message::Update(AppUpdate::IdleSearch)),
+        SearchState::On => match binding {
+            Binding::EndSearch => Some(Message::Update(AppUpdate::IdleSearch)),
             _ => {
-                let term_ev = TermEvent::Key(ev);
+                let term_ev = TermEvent::Key(*app.key_events.last().unwrap());
                 search.input.handle_event(&term_ev);
 
                 Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
-        _ => match ev.code {
-            Key::Char('j') | Key::Down => Some(Message::Update(AppUpdate::Scroll(1))),
-            Key::Char('k') | Key::Up => Some(Message::Update(AppUpdate::Scroll(-1))),
-            Key::Home => Some(Message::Update(AppUpdate::ScrollTop)),
-            Key::End => Some(Message::Update(AppUpdate::ScrollBottom)),
-            Key::Char('d') => Some(Message::Update(AppUpdate::RemoveFromQueue)),
-            Key::Delete => Some(Message::Update(AppUpdate::ClearQueue)),
-            Key::Enter => Some(Message::Update(AppUpdate::Play)),
-            Key::Char('/') => Some(Message::Update(AppUpdate::StartSearch)),
-            Key::Esc => Some(Message::Update(AppUpdate::EndSearch)),
-            _ => translate_key_event_common(app, ev),
+        _ => match binding {
+            Binding::ScrollUp => Some(Message::Update(AppUpdate::Scroll(-1))),
+            Binding::ScrollDown => Some(Message::Update(AppUpdate::Scroll(1))),
+            Binding::ScrollManyUp => Some(Message::Update(AppUpdate::Scroll(-5))),
+            Binding::ScrollManyDown => Some(Message::Update(AppUpdate::Scroll(5))),
+            Binding::ScrollTop => Some(Message::Update(AppUpdate::ScrollTop)),
+            Binding::ScrollBottom => Some(Message::Update(AppUpdate::ScrollBottom)),
+            Binding::RemoveFromQueue => Some(Message::Update(AppUpdate::RemoveFromQueue)),
+            Binding::ClearQueue => Some(Message::Update(AppUpdate::ClearQueue)),
+            Binding::Play => Some(Message::Update(AppUpdate::Play)),
+            Binding::StartSearch => Some(Message::Update(AppUpdate::StartSearch)),
+            Binding::EndSearch => Some(Message::Update(AppUpdate::EndSearch)),
+            _ => translate_binding_common(app, binding),
         },
     }
 }
 
-fn translate_key_event_library_both(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
-    use event::KeyCode as Key;
-
-    match ev.code {
-        Key::Char('j') | Key::Down => Some(Message::Update(AppUpdate::Scroll(1))),
-        Key::Char('k') | Key::Up => Some(Message::Update(AppUpdate::Scroll(-1))),
-        Key::Home => Some(Message::Update(AppUpdate::ScrollTop)),
-        Key::End => Some(Message::Update(AppUpdate::ScrollBottom)),
-        Key::Char('h') | Key::Left => Some(Message::Update(AppUpdate::FocusLeft)),
-        Key::Char('l') | Key::Right => Some(Message::Update(AppUpdate::FocusRight)),
-        Key::Enter => Some(Message::Update(AppUpdate::AddToQueue)),
-        Key::Char('/') => Some(Message::Update(AppUpdate::StartSearch)),
-        Key::Esc => Some(Message::Update(AppUpdate::EndSearch)),
-        _ => translate_key_event_common(app, ev),
+fn translate_binding_library_both(app: &mut App, binding: Binding) -> Option<Message> {
+    match binding {
+        Binding::ScrollUp => Some(Message::Update(AppUpdate::Scroll(-1))),
+        Binding::ScrollDown => Some(Message::Update(AppUpdate::Scroll(1))),
+        Binding::ScrollManyUp => Some(Message::Update(AppUpdate::Scroll(-5))),
+        Binding::ScrollManyDown => Some(Message::Update(AppUpdate::Scroll(5))),
+        Binding::ScrollTop => Some(Message::Update(AppUpdate::ScrollTop)),
+        Binding::ScrollBottom => Some(Message::Update(AppUpdate::ScrollBottom)),
+        Binding::FocusLeft => Some(Message::Update(AppUpdate::FocusLeft)),
+        Binding::FocusRight => Some(Message::Update(AppUpdate::FocusRight)),
+        Binding::AddToQueue => Some(Message::Update(AppUpdate::AddToQueue)),
+        Binding::StartSearch => Some(Message::Update(AppUpdate::StartSearch)),
+        Binding::EndSearch => Some(Message::Update(AppUpdate::EndSearch)),
+        _ => translate_binding_common(app, binding),
     }
 }
 
-fn translate_key_event_library_groups(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
-    use event::KeyCode as Key;
-
+fn translate_binding_library_groups(app: &mut App, binding: Binding) -> Option<Message> {
     let search = &mut app.library_state.search;
     match search.state {
-        SearchState::On => match ev.code {
-            Key::Enter | Key::Esc => Some(Message::Update(AppUpdate::IdleSearch)),
+        SearchState::On => match binding {
+            Binding::EndSearch => Some(Message::Update(AppUpdate::IdleSearch)),
             _ => {
-                let term_ev = TermEvent::Key(ev);
+                let term_ev = TermEvent::Key(*app.key_events.last().unwrap());
                 search.input.handle_event(&term_ev);
 
                 Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
-        _ => translate_key_event_library_both(app, ev),
+        _ => translate_binding_library_both(app, binding),
     }
 }
 
-fn translate_key_event_library_child(
-    app: &mut App,
-    ev: event::KeyEvent,
-    i: usize,
-) -> Option<Message> {
-    use event::KeyCode as Key;
-
+fn translate_binding_library_child(app: &mut App, binding: Binding, i: usize) -> Option<Message> {
     let search = &mut app.library_state.children[i].search;
     match search.state {
-        SearchState::On => match ev.code {
-            Key::Enter | Key::Esc => Some(Message::Update(AppUpdate::IdleSearch)),
+        SearchState::On => match binding {
+            Binding::EndSearch => Some(Message::Update(AppUpdate::IdleSearch)),
             _ => {
-                let term_ev = TermEvent::Key(ev);
+                let term_ev = TermEvent::Key(*app.key_events.last().unwrap());
                 search.input.handle_event(&term_ev);
 
                 Some(Message::Update(AppUpdate::UpdateSearch))
             }
         },
-        _ => translate_key_event_library_both(app, ev),
+        _ => translate_binding_library_both(app, binding),
     }
 }
 
-pub fn translate_key_event_common(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
-    use event::KeyCode as Key;
-
-    match ev.code {
-        Key::Char('q') => Some(Message::SwitchAppState(AppState::Done)),
-        Key::Char('w') => Some(Message::Update(AppUpdate::ModeSequential)),
-        Key::Char('e') => Some(Message::Update(AppUpdate::ModeSingle)),
-        Key::Char('r') => Some(Message::Update(AppUpdate::ModeRandom)),
-        Key::Char('P') => Some(Message::Update(AppUpdate::Previous)),
-        Key::Char('N') => Some(Message::Update(AppUpdate::Next)),
-        Key::Char('g') => Some(Message::Update(AppUpdate::ModeGapless)),
-        Key::Char(' ') => Some(Message::Update(AppUpdate::Toggle)),
-        Key::Char('p') => Some(Message::Update(AppUpdate::Pause)),
-        Key::Char('o') => Some(Message::Update(AppUpdate::Resume)),
-        Key::Char('S') => Some(Message::Update(AppUpdate::Stop)),
-        Key::Char('[') => Some(Message::Update(AppUpdate::Seek(-app.config.seek_step))),
-        Key::Char(']') => Some(Message::Update(AppUpdate::Seek(app.config.seek_step))),
-        Key::Char('<') => Some(Message::Update(AppUpdate::Speed(-app.config.speed_step))),
-        Key::Char('>') => Some(Message::Update(AppUpdate::Speed(app.config.speed_step))),
-        Key::Char('-') => Some(Message::Update(AppUpdate::Volume(-app.config.volume_step))),
-        Key::Char('=') => Some(Message::Update(AppUpdate::Volume(app.config.volume_step))),
-        Key::Char('U') => Some(Message::Update(AppUpdate::MusingUpdate)),
-        Key::Char('1') => Some(Message::SwitchScreen(Screen::Cover)),
-        Key::Char('2') => Some(Message::SwitchScreen(Screen::Queue)),
-        Key::Char('3') => Some(Message::SwitchScreen(Screen::Library)),
+pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Message> {
+    match binding {
+        Binding::Quit => Some(Message::SwitchAppState(AppState::Done)),
+        Binding::Next => Some(Message::Update(AppUpdate::Next)),
+        Binding::Previous => Some(Message::Update(AppUpdate::Previous)),
+        Binding::Pause => Some(Message::Update(AppUpdate::Pause)),
+        Binding::Resume => Some(Message::Update(AppUpdate::Resume)),
+        Binding::Toggle => Some(Message::Update(AppUpdate::Toggle)),
+        Binding::Stop => Some(Message::Update(AppUpdate::Stop)),
+        Binding::SeekForwards => Some(Message::Update(AppUpdate::Seek(app.config.seek_step))),
+        Binding::SeekBackwards => Some(Message::Update(AppUpdate::Seek(-app.config.seek_step))),
+        Binding::SpeedUp => Some(Message::Update(AppUpdate::Speed(app.config.speed_step))),
+        Binding::SpeedDown => Some(Message::Update(AppUpdate::Speed(-app.config.speed_step))),
+        Binding::VolumeUp => Some(Message::Update(AppUpdate::Volume(app.config.volume_step))),
+        Binding::VolumeDown => Some(Message::Update(AppUpdate::Volume(-app.config.volume_step))),
+        Binding::ModeSequential => Some(Message::Update(AppUpdate::ModeSequential)),
+        Binding::ModeSingle => Some(Message::Update(AppUpdate::ModeSingle)),
+        Binding::ModeRandom => Some(Message::Update(AppUpdate::ModeRandom)),
+        Binding::ModeGapless => Some(Message::Update(AppUpdate::ModeGapless)),
+        Binding::Previous => Some(Message::Update(AppUpdate::Previous)),
+        Binding::MusingUpdate => Some(Message::Update(AppUpdate::MusingUpdate)),
+        Binding::ScreenCover => Some(Message::SwitchScreen(Screen::Cover)),
+        Binding::ScreenQueue => Some(Message::SwitchScreen(Screen::Queue)),
+        Binding::ScreenLibrary => Some(Message::SwitchScreen(Screen::Library)),
         _ => None,
     }
 }
 
 pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
-    // TODO: make bindings configurable (a map (Message,  KeyEvent))
-    match app.screen {
-        Screen::Queue => translate_key_event_queue(app, ev),
-        Screen::Library => match app.library_state.focused_part {
-            FocusedPart::Groups => translate_key_event_library_groups(app, ev),
-            FocusedPart::Child(i) => translate_key_event_library_child(app, ev, i),
-        },
-        _ => translate_key_event_common(app, ev),
+    app.key_events.push(ev);
+    match app.config.keybind.translate(&app.key_events) {
+        Some(KeybindNode::Terminal(binding)) => {
+            let res = match app.screen {
+                Screen::Queue => translate_binding_queue(app, *binding),
+                Screen::Library => match app.library_state.focused_part {
+                    FocusedPart::Groups => translate_binding_library_groups(app, *binding),
+                    FocusedPart::Child(i) => translate_binding_library_child(app, *binding, i),
+                },
+                _ => translate_binding_common(app, *binding),
+            };
+            app.key_events.clear();
+
+            res
+        }
+        Some(KeybindNode::Transition(_)) => None,
+        None => {
+            app.key_events.clear();
+            None
+        }
     }
 }
 

@@ -1,5 +1,9 @@
 use anyhow::{Result, bail};
-use ratatui::{Terminal, backend::Backend};
+use ratatui::{
+    Terminal,
+    backend::Backend,
+    crossterm::event::{self, KeyEvent},
+};
 use std::{collections::HashMap, sync::mpsc as std_chan};
 
 use crate::{
@@ -48,6 +52,7 @@ pub struct App {
     pub musing_state: MusingState,
     pub queue_state: QueueState,
     pub library_state: LibraryState,
+    pub key_events: Vec<KeyEvent>,
     pub status_msg: Option<String>,
     pub config: AppConfig,
 }
@@ -68,6 +73,7 @@ impl App {
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
         let library_state = LibraryState::default();
+        let key_events = Vec::new();
         let status_msg = None;
         let config = AppConfig {
             theme,
@@ -84,6 +90,7 @@ impl App {
             musing_state,
             queue_state,
             library_state,
+            key_events,
             status_msg,
             config,
         })
