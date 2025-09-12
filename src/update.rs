@@ -167,8 +167,14 @@ pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Messa
 
 pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     app.key_events.push(ev);
-    match app.config.keybind.translate(&app.key_events) {
-        Some(KeybindNode::Terminal(binding)) => {
+    let default_translation = KeybindNode::Terminal(Binding::Other);
+    let translation = app
+        .config
+        .keybind
+        .translate(&app.key_events)
+        .unwrap_or(&default_translation);
+    match translation {
+        KeybindNode::Terminal(binding) => {
             let res = match app.screen {
                 Screen::Queue => translate_binding_queue(app, *binding),
                 Screen::Library => match app.library_state.focused_part {
@@ -181,11 +187,7 @@ pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message
 
             res
         }
-        Some(KeybindNode::Transition(_)) => None,
-        None => {
-            app.key_events.clear();
-            None
-        }
+        KeybindNode::Transition(_) => None,
     }
 }
 

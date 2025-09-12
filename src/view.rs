@@ -53,7 +53,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
         .rows(vec![
             Row::new(vec![
                 Cell::from(
-                    Line::from(format!("[{} {}]", mode, if gapless { 'G' } else { 'g' }))
+                    Line::from(format!("[{} {}]", mode, if gapless { 'T' } else { 't' }))
                         .left_aligned(),
                 ),
                 Cell::from(

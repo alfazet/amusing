@@ -4,6 +4,7 @@ use std::{collections::HashMap, str::FromStr, string::ParseError};
 use strum_macros::EnumString;
 use toml::{Table, Value as TomlValue};
 
+// TODO: context aware bindings
 #[derive(Clone, Copy, Debug, EnumString)]
 #[strum(serialize_all = "snake_case")]
 pub enum Binding {
@@ -42,14 +43,9 @@ pub enum Binding {
     ScreenCover,
     ScreenQueue,
     ScreenLibrary,
+    // used to pass typed characters to search
+    Other,
 }
-
-
-// #[derive(Clone, Copy, Debug, EnumString)]
-// #[strum(serialize_all = "snake_case")]
-// pub enum Context {
-//
-// }
 
 #[derive(Debug)]
 pub enum KeybindNode {
@@ -133,6 +129,14 @@ impl Default for Keybind {
             Binding::ScrollDown,
         );
         keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('u'), Mods::CONTROL)],
+            Binding::ScrollManyUp,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('d'), Mods::CONTROL)],
+            Binding::ScrollManyDown,
+        );
+        keybind.add_keybind(
             &[
                 KeyEvent::new(KeyCode::Char('g'), Mods::NONE),
                 KeyEvent::new(KeyCode::Char('g'), Mods::NONE),
@@ -158,6 +162,10 @@ impl Default for Keybind {
         keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Right, Mods::NONE)],
             Binding::FocusRight,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('/'), Mods::NONE)],
+            Binding::StartSearch,
         );
         keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Esc, Mods::NONE)],
