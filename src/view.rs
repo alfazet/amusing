@@ -10,7 +10,7 @@ use ratatui::{
         Block, Borders, Cell, LineGauge, List, Padding, Paragraph, Row, Table, TableState, Widget,
     },
 };
-use ratatui_image::StatefulImage;
+use ratatui_image::{Resize, StatefulImage};
 
 use crate::{
     app::{App, AppState, Screen},
@@ -146,7 +146,25 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame, cover_art_state: &mut C
         .split(frame.area());
     render_header(app, frame, layout[0]);
     if cover_art_state.draw {
-        frame.render_stateful_widget(StatefulImage::new(), layout[1], &mut cover_art_state.state);
+        let size = (0.5 * layout[1].width.min(layout[1].height) as f32) as u16;
+        let centered = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Length(size)])
+            .flex(Flex::Center)
+            .split(layout[1]);
+        let centered = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Length(2 * size)])
+            .flex(Flex::Center)
+            .split(centered[0]);
+        // let block = Block::default().borders(Borders::ALL).padding(Padding::horizontal(1));
+        // frame.render_widget(&block, centered[0]);
+        frame.render_stateful_widget(
+            StatefulImage::new().resize(Resize::Scale(None)),
+            centered[0],
+            // block.inner(centered[0]),
+            &mut cover_art_state.state,
+        );
     }
     render_footer(app, frame, layout[2]);
 }
