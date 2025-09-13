@@ -1,6 +1,6 @@
 use anyhow::Result;
-use ratatui::crossterm::event::{self, Event as TermEvent, KeyEvent};
-use ratatui_image::{errors::Errors, thread::ResizeResponse};
+use ratatui::crossterm::event::{self, Event as TermEvent};
+use ratatui_image::thread::ResizeResponse;
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::{
@@ -8,9 +8,8 @@ use crate::{
     model::{
         common::{FocusedPart, Scroll},
         cover_art::CoverArtState,
-        keybind::{Binding, Keybind, KeybindNode},
-        library::LibraryState,
-        musing::{MusingState, MusingStateDelta},
+        keybind::{Binding, KeybindNode},
+        musing::MusingStateDelta,
         search::SearchState,
     },
 };

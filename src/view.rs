@@ -157,12 +157,9 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame, cover_art_state: &mut C
             .constraints(vec![Constraint::Length(2 * size)])
             .flex(Flex::Center)
             .split(centered[0]);
-        // let block = Block::default().borders(Borders::ALL).padding(Padding::horizontal(1));
-        // frame.render_widget(&block, centered[0]);
         frame.render_stateful_widget(
             StatefulImage::new().resize(Resize::Scale(None)),
             centered[0],
-            // block.inner(centered[0]),
             &mut cover_art_state.state,
         );
     }

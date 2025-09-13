@@ -1,22 +1,13 @@
 use anyhow::{Result, bail};
-use ratatui::{
-    Terminal,
-    backend::Backend,
-    crossterm::event::{self, KeyEvent},
-};
-use std::{collections::HashMap, sync::mpsc as std_chan};
+use ratatui::{Terminal, backend::Backend, crossterm::event::KeyEvent};
+use std::sync::mpsc as std_chan;
 
 use crate::{
     config::Config,
     event_handler::{self, Event},
     model::{
-        connection::Connection,
-        cover_art::CoverArtState,
-        keybind::Keybind,
-        library::LibraryState,
-        musing::{MusingState, MusingStateDelta},
-        queue::QueueState,
-        theme::Theme,
+        connection::Connection, cover_art::CoverArtState, keybind::Keybind, library::LibraryState,
+        musing::MusingState, queue::QueueState, theme::Theme,
     },
     update, view,
 };

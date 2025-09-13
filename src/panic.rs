@@ -1,11 +1,6 @@
 use crate::constants;
 use ratatui::crossterm::{ExecutableCommand, terminal};
-use std::{
-    backtrace::Backtrace,
-    fs,
-    io::{Write, stdout},
-    panic,
-};
+use std::{backtrace::Backtrace, fs, io::stdout, panic};
 
 pub fn register_backtrace_panic_handler() {
     panic::set_hook(Box::new(|info| {

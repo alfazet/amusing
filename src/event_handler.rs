@@ -4,7 +4,7 @@ use ratatui_image::{errors::Errors, thread::ResizeResponse};
 use std::{
     sync::mpsc as std_chan,
     thread,
-    time::{self, Duration, Instant},
+    time::{Duration, Instant},
 };
 
 use crate::panic;
