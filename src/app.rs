@@ -58,13 +58,14 @@ impl App {
             seek_step,
             volume_step,
             speed_step,
+            library_group_by,
         } = config;
         let connection = Connection::try_new(port)?;
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
-        let library_state = LibraryState::default();
+        let library_state = LibraryState::new(library_group_by);
         let key_events = Vec::new();
         let status_msg = None;
         let config = AppConfig {

@@ -1,7 +1,12 @@
 [package]
 name = "amusing"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
+description = "A Musing client"
+keywords = ["music", "musing", "client", "tui"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/alfazet/amusing"
 
 [dependencies]
 anyhow = "1.0.99"
@@ -22,3 +27,8 @@ strum_macros = "0.27.2"
 toml = "0.9.5"
 tui-input = "0.14.0"
 unidecode = "0.3.0"
+
+[profile.release]
+lto = true
+panic = "abort"
+strip = true

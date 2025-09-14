@@ -23,7 +23,6 @@ pub enum AppUpdate {
     Toggle,
     Stop,
     Play,
-    PlayInstant,
     Seek(i64),
     Speed(i16),
     Volume(i8),
@@ -157,7 +156,6 @@ pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Messa
         Binding::ModeSingle => Some(Message::Update(AppUpdate::ModeSingle)),
         Binding::ModeRandom => Some(Message::Update(AppUpdate::ModeRandom)),
         Binding::ModeGapless => Some(Message::Update(AppUpdate::ModeGapless)),
-        Binding::Previous => Some(Message::Update(AppUpdate::Previous)),
         Binding::MusingUpdate => Some(Message::Update(AppUpdate::MusingUpdate)),
         Binding::ScreenCover => Some(Message::SwitchScreen(Screen::Cover)),
         Binding::ScreenQueue => Some(Message::SwitchScreen(Screen::Queue)),
@@ -303,16 +301,14 @@ pub fn update_app(app: &mut App, msg: Message) {
                 Ok(())
             }
             AppUpdate::FocusLeft => {
-                match app.screen {
-                    Screen::Library => app.library_state.focus_left(),
-                    _ => (),
+                if let Screen::Library = app.screen {
+                    app.library_state.focus_left();
                 }
                 Ok(())
             }
             AppUpdate::FocusRight => {
-                match app.screen {
-                    Screen::Library => app.library_state.focus_right(),
-                    _ => (),
+                if let Screen::Library = app.screen {
+                    app.library_state.focus_right();
                 }
                 Ok(())
             }
@@ -360,7 +356,7 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta, cover_art_state: &mu
         app.musing_state.current = current;
     }
     if let Some(cover_art) = delta.cover_art {
-        cover_art_state.replace_art(cover_art.as_ref());
+        let _ = cover_art_state.replace_art(cover_art.as_ref());
         app.musing_state.cover_art = cover_art;
     }
     if delta.timer.is_some() {

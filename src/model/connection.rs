@@ -1,19 +1,17 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use serde_json::{Map, Value as JsonValue, json};
 use std::{
     collections::HashMap,
     io::{BufReader, prelude::*},
-    net::{Shutdown, TcpStream},
+    net::TcpStream,
 };
 
 use crate::{
     constants,
-    model::{
-        common::SongGroup,
-        musing::{MusingState, MusingStateDelta},
-    },
+    model::{common::SongGroup, musing::MusingStateDelta},
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Connection {
     version: String,

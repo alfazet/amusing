@@ -80,12 +80,12 @@ fn try_from_table(mut table: Table) -> Result<Style> {
         .get("add_modifier")
         .and_then(|s| s.as_str())
         .map(|s| s.to_string())
-        .unwrap_or(String::new());
+        .unwrap_or_default();
     let sub_modifier = table
         .get("sub_modifier")
         .and_then(|s| s.as_str())
         .map(|s| s.to_string())
-        .unwrap_or(String::new());
+        .unwrap_or_default();
     table.insert("add_modifier".into(), TomlValue::String(add_modifier));
     table.insert("sub_modifier".into(), TomlValue::String(sub_modifier));
 

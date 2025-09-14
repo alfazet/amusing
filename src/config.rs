@@ -30,6 +30,7 @@ pub struct Config {
     pub seek_step: i64,
     pub volume_step: i8,
     pub speed_step: i16,
+    pub library_group_by: Vec<String>,
 }
 
 impl Default for Config {
@@ -41,6 +42,10 @@ impl Default for Config {
             seek_step: constants::DEFAULT_SEEK_STEP,
             volume_step: constants::DEFAULT_VOLUME_STEP,
             speed_step: constants::DEFAULT_SPEED_STEP,
+            library_group_by: constants::DEFAULT_GROUP_BY
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         }
     }
 }
@@ -68,13 +73,19 @@ impl Config {
                     config.keybind = Keybind::try_from(keybind)?;
                 }
                 ("seek_step", TomlValue::Integer(seek_step)) => {
-                    config.seek_step = i64::try_from(seek_step)?;
+                    config.seek_step = seek_step;
                 }
                 ("volume_step", TomlValue::Integer(volume_step)) => {
                     config.volume_step = i8::try_from(volume_step)?;
                 }
                 ("speed_step", TomlValue::Integer(speed_step)) => {
                     config.speed_step = i16::try_from(speed_step)?;
+                }
+                ("library_group_by", TomlValue::Array(library_group_by)) => {
+                    config.library_group_by = library_group_by
+                        .iter()
+                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect();
                 }
                 (other, _) => bail!("invalid config key `{}`", other),
             }

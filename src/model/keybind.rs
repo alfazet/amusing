@@ -1,8 +1,8 @@
 use anyhow::{Result, anyhow, bail};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::{collections::HashMap, str::FromStr, string::ParseError};
+use std::{collections::HashMap, str::FromStr};
 use strum_macros::EnumString;
-use toml::{Table, Value as TomlValue};
+use toml::Table;
 
 // TODO: context aware bindings
 #[derive(Clone, Copy, Debug, EnumString)]
@@ -59,7 +59,6 @@ pub struct Keybind(HashMap<KeyEvent, KeybindNode>);
 impl Default for Keybind {
     fn default() -> Self {
         use KeyModifiers as Mods;
-        use KeybindNode as Node;
 
         let mut keybind = Keybind(HashMap::new());
         keybind.add_keybind(
@@ -233,7 +232,7 @@ impl TryFrom<Table> for Keybind {
                     .ok_or(anyhow!("could not parse `{}` as a keybinding", s))?;
                 keybind.add_keybind(&key_events, binding);
             } else if let Some(a) = val.as_array() {
-                for s in a.into_iter().filter_map(|s| s.as_str()) {
+                for s in a.iter().filter_map(|s| s.as_str()) {
                     let key_events = try_into_key_events(s)
                         .ok_or(anyhow!("could not parse `{}` as a keybinding", s))?;
                     keybind.add_keybind(&key_events, binding);
@@ -264,7 +263,7 @@ impl Keybind {
                                 events[0],
                                 KeybindNode::Transition(Keybind(HashMap::new())),
                             );
-                            self.add_keybind(&events, binding);
+                            self.add_keybind(events, binding);
                         }
                         // add to the transition node
                         KeybindNode::Transition(trans) => trans.add_keybind(&events[1..], binding),
@@ -273,7 +272,7 @@ impl Keybind {
                         // add a new transition node
                         self.0
                             .insert(events[0], KeybindNode::Transition(Keybind(HashMap::new())));
-                        self.add_keybind(&events, binding);
+                        self.add_keybind(events, binding);
                     }
                 }
             }

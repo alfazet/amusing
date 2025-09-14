@@ -1,14 +1,9 @@
-use anyhow::Result;
-use ratatui::widgets::{ListState, TableState};
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock, mpsc as std_chan},
-};
-use tui_input::Input as TuiInput;
+use ratatui::widgets::TableState;
+use std::collections::HashMap;
 
 use crate::model::{
     common::{FocusedPart, Scroll, SongGroup},
-    search::{self, Search, SearchMessage, SearchState},
+    search::{Search, SearchState},
 };
 
 #[derive(Debug, Default)]
@@ -151,6 +146,7 @@ impl Scroll for LibraryState {
         };
         match state.selected() {
             Some(r) => {
+                // wrapping scroll
                 if delta < 0 {
                     if r >= u_delta {
                         state.scroll_up_by(u_delta as u16);
@@ -190,6 +186,17 @@ impl Scroll for LibraryState {
 }
 
 impl LibraryState {
+    pub fn new(group_by_tags: Vec<String>) -> Self {
+        Self {
+            state: TableState::default(),
+            focused_part: FocusedPart::default(),
+            group_by_tags,
+            children_tags: vec!["tracknumber".into(), "tracktitle".into()],
+            children: Vec::new(),
+            search: Search::default(),
+        }
+    }
+
     pub fn search_on(&mut self) {
         self.scroll_to_top();
         self.search.on(self.children_to_repr());

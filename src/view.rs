@@ -1,19 +1,13 @@
-use anyhow::Result;
-use itertools::izip;
 use ratatui::{
-    DefaultTerminal, Frame,
-    buffer::Buffer,
+    Frame,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
-    symbols::{border, line},
-    text::{Line, Span, Text},
-    widgets::{
-        Block, Borders, Cell, LineGauge, List, Padding, Paragraph, Row, Table, TableState, Widget,
-    },
+    text::{Line, Span},
+    widgets::{Block, Borders, Cell, Padding, Paragraph, Row, Table},
 };
 use ratatui_image::{Resize, StatefulImage};
 
 use crate::{
-    app::{App, AppState, Screen},
+    app::{App, Screen},
     constants,
     model::{
         common::FocusedPart,
@@ -69,7 +63,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
                 Cell::from(Line::from(format!("[{}]", state)).left_aligned()),
                 Cell::from(
                     Line::from(if is_stopped {
-                        Vec::new().into()
+                        Vec::new()
                     } else {
                         vec![
                             Span::from(current_artist).style(app.config.theme.current_artist),
@@ -369,8 +363,6 @@ pub fn render(app: &mut App, frame: &mut Frame, cover_art_state: &mut CoverArtSt
 }
 
 pub mod view_utils {
-    use super::*;
-
     pub fn format_time(secs: u64) -> String {
         let h = secs / 3600;
         let m = (secs - h * 3600) / 60;

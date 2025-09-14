@@ -2,10 +2,8 @@ use anyhow::Result;
 use base64::prelude::*;
 use image::ImageReader;
 use ratatui_image::{
-    StatefulImage,
-    errors::Errors,
     picker::Picker,
-    thread::{ResizeRequest, ResizeResponse, ThreadProtocol},
+    thread::{ResizeRequest, ThreadProtocol},
 };
 use std::{io::Cursor, sync::mpsc as std_chan, thread};
 

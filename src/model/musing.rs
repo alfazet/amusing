@@ -1,10 +1,6 @@
 use anyhow::{Result, anyhow, bail};
-use serde_json::{Map, Value};
-use std::{
-    collections::HashMap,
-    fmt::{self, Display, Formatter},
-    path::PathBuf,
-};
+use serde_json::Value;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PlaybackState {

@@ -1,14 +1,9 @@
-use anyhow::Result;
 use ratatui::widgets::TableState;
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock, mpsc as std_chan},
-};
-use tui_input::Input as TuiInput;
+use std::collections::HashMap;
 
 use crate::model::{
     common::Scroll,
-    search::{self, Search, SearchMessage, SearchState},
+    search::{Search, SearchState},
 };
 
 #[derive(Debug)]
