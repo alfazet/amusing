@@ -1,4 +1,3 @@
-use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as TermEvent};
 use ratatui_image::thread::ResizeResponse;
 use tui_input::backend::crossterm::EventHandler;
@@ -7,7 +6,7 @@ use crate::{
     app::{App, AppState, Screen},
     model::{
         common::{FocusedPart, Scroll},
-        cover_art::CoverArtState,
+        connection::{MusingRequest, MusingResponse},
         keybind::{Binding, KeybindNode},
         musing::MusingStateDelta,
         search::SearchState,
@@ -190,25 +189,14 @@ pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message
     }
 }
 
-pub fn update_library(app: &mut App) -> Result<()> {
-    app.connection
-        .update()
-        .map(|msg| app.status_msg = Some(msg))?;
-    let grouped_songs = app.connection.grouped_songs(
-        &app.library_state.group_by_tags,
-        &app.library_state.children_tags,
-    )?;
-    app.library_state.update(grouped_songs);
-
-    Ok(())
-}
-
-pub fn update_app(app: &mut App, msg: Message) -> Result<()> {
+// some messages trigger a request being sent to the network thread
+// a response to this request will arrive later at some point
+pub fn update_on_message(app: &mut App, msg: Message) {
     match msg {
         Message::SwitchScreen(screen) => app.screen = screen,
         Message::SwitchAppState(app_state) => app.app_state = app_state,
         Message::Update(update) => match update {
-            AppUpdate::MusingUpdate => update_library(app)?,
+            AppUpdate::MusingUpdate => update_library(app),
             AppUpdate::Scroll(delta) => match app.screen {
                 Screen::Queue => app.queue_state.scroll(delta),
                 Screen::Library => app.library_state.scroll(delta),
@@ -284,31 +272,34 @@ pub fn update_app(app: &mut App, msg: Message) -> Result<()> {
             }
             AppUpdate::AddToQueue => {
                 if let Some(songs) = app.library_state.selected_songs() {
-                    app.connection.add_to_queue(songs)?;
+                    app.connection
+                        .send(MusingRequest::AddToQueue(songs.to_vec()));
                     app.library_state.scroll(1);
                 }
             }
             AppUpdate::Play => {
                 if let Some(i) = app.queue_state.unordered_selected() {
-                    app.connection.play(app.musing_state.queue[i].id)?;
+                    app.connection
+                        .send(MusingRequest::Play(app.musing_state.queue[i].id));
                 }
             }
             AppUpdate::RemoveFromQueue => {
                 if let Some(i) = app.queue_state.unordered_selected() {
-                    app.connection.remove(app.musing_state.queue[i].id)?;
+                    app.connection
+                        .send(MusingRequest::Remove(app.musing_state.queue[i].id));
                 }
             }
-            AppUpdate::Seek(seconds) => app.connection.seek(seconds)?,
-            AppUpdate::Speed(speed) => app.connection.speed(speed)?,
-            AppUpdate::Volume(delta) => app.connection.volume(delta)?,
-            other => app.connection.no_response(&enum_stringify!(other))?,
+            AppUpdate::Seek(seconds) => app.connection.send(MusingRequest::Seek(seconds)),
+            AppUpdate::Speed(delta) => app.connection.send(MusingRequest::Speed(delta)),
+            AppUpdate::Volume(delta) => app.connection.send(MusingRequest::Volume(delta)),
+            other => app
+                .connection
+                .send(MusingRequest::Other(enum_stringify!(other))),
         },
-    }
-
-    Ok(())
+    };
 }
 
-pub fn update_state(app: &mut App, delta: MusingStateDelta, cover_art_state: &mut CoverArtState) {
+pub fn update_state(app: &mut App, delta: MusingStateDelta) {
     if let Some(playback_state) = delta.playback_state {
         app.musing_state.playback_state = playback_state;
     }
@@ -328,7 +319,7 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta, cover_art_state: &mu
         app.musing_state.current = current;
     }
     if let Some(cover_art) = delta.cover_art {
-        let _ = cover_art_state.replace_art(cover_art.as_ref());
+        let _ = app.cover_art_state.replace_art(cover_art.as_ref());
         app.musing_state.cover_art = cover_art;
     }
     if delta.timer.is_some() {
@@ -345,19 +336,38 @@ pub fn update_queue(app: &mut App) {
         .musing_state
         .queue
         .iter()
-        .map(|song| song.path.as_str())
+        .map(|song| song.path.as_str().to_string())
         .collect();
-    match app.connection.metadata(&paths, None) {
-        Ok(metadata) => {
-            app.queue_state.metadata = metadata;
+    app.connection.send(MusingRequest::Metadata(paths, None));
+}
+
+pub fn update_library(app: &mut App) {
+    app.status_msg = Some("musing is updating...".into());
+    app.connection.send(MusingRequest::Update);
+    app.connection.send(MusingRequest::GroupedSongs(
+        app.library_state.group_by_tags.to_vec(),
+        app.library_state.children_tags.to_vec(),
+    ));
+}
+
+pub fn update_on_response(
+    app: &mut App,
+    response: MusingResponse,
+) {
+    match response {
+        MusingResponse::Error(e) => app.status_msg = Some(format!("connection error: {}", e)),
+        MusingResponse::Metadata(meta) => {
+            app.queue_state.metadata = meta;
             app.queue_state
                 .search
                 .list_update(app.queue_state.metadata_to_repr());
         }
-        Err(e) => app.status_msg = Some(e.to_string()),
+        MusingResponse::GroupedSongs(grouped) => app.library_state.update(grouped),
+        MusingResponse::StateDelta(delta) => update_state(app, delta),
+        MusingResponse::Update(res) => app.status_msg = Some(res),
     }
 }
 
-pub fn update_cover_art(cover_art: &mut CoverArtState, resize: ResizeResponse) {
-    let _ = cover_art.state.update_resized_protocol(resize);
+pub fn update_cover_art(app: &mut App, resize: ResizeResponse) {
+    let _ = app.cover_art_state.state.update_resized_protocol(resize);
 }

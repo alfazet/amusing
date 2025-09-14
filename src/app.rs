@@ -6,8 +6,13 @@ use crate::{
     config::Config,
     event_handler::{self, Event},
     model::{
-        connection::Connection, cover_art::CoverArtState, keybind::Keybind, library::LibraryState,
-        musing::MusingState, queue::QueueState, theme::Theme,
+        connection::{Connection, MusingRequest},
+        cover_art::CoverArtState,
+        keybind::Keybind,
+        library::LibraryState,
+        musing::MusingState,
+        queue::QueueState,
+        theme::Theme,
     },
     update, view,
 };
@@ -36,7 +41,6 @@ pub struct AppConfig {
     pub speed_step: i16,
 }
 
-#[derive(Debug)]
 pub struct App {
     pub connection: Connection,
     pub app_state: AppState,
@@ -44,9 +48,12 @@ pub struct App {
     pub musing_state: MusingState,
     pub queue_state: QueueState,
     pub library_state: LibraryState,
+    pub cover_art_state: CoverArtState,
     pub key_events: Vec<KeyEvent>,
     pub status_msg: Option<String>,
     pub config: AppConfig,
+    tx: std_chan::Sender<Event>,
+    rx: std_chan::Receiver<Event>,
 }
 
 impl App {
@@ -60,12 +67,14 @@ impl App {
             speed_step,
             library_group_by,
         } = config;
-        let connection = Connection::try_new(port)?;
+        let (tx, rx) = std_chan::channel();
+        let connection = Connection::try_new(port, tx.clone())?;
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::default();
         let library_state = LibraryState::new(library_group_by);
+        let cover_art_state = CoverArtState::try_new(tx.clone())?;
         let key_events = Vec::new();
         let status_msg = None;
         let config = AppConfig {
@@ -83,44 +92,43 @@ impl App {
             musing_state,
             queue_state,
             library_state,
+            cover_art_state,
             key_events,
             status_msg,
             config,
+            tx,
+            rx,
         })
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        let (tx_event, rx_event) = std_chan::channel();
-        let tx_resize = tx_event.clone();
-        // clone tx_event and pass it to the picture thread
-        let mut cover_art_state = CoverArtState::try_new(tx_resize)?;
-        event_handler::run(tx_event);
+        update::update_library(self);
+        // TODO: move cover_art_state to self because now it should be easy
+        // let mut cover_art_state = CoverArtState::try_new(self.tx.clone())?;
+        event_handler::run(self.tx.clone());
 
-        update::update_library(self)?;
         loop {
-            match rx_event.recv() {
+            // we get events from 4 sources: key presses, the automatic refresh, cover art
+            // resizing and the network connection
+            match self.rx.recv() {
                 Ok(event) => match event {
                     Event::Keypress(ev) => {
                         if let Some(msg) = update::translate_key_event(self, ev) {
                             let _ = self.status_msg.take();
-                            if let Err(e) = update::update_app(self, msg) {
-                                self.status_msg =
-                                    Some(format!("couldn't connect to musing ({})", e));
-                            }
-                        }
-                    }
-                    Event::Refresh => {
-                        if let Ok(delta) = self.connection.state_delta() {
-                            update::update_state(self, delta, &mut cover_art_state);
+                            update::update_on_message(self, msg);
                         }
                     }
                     Event::CoverArtResize(redraw) => {
-                        update::update_cover_art(&mut cover_art_state, redraw?);
+                        update::update_cover_art(self, redraw?)
                     }
+                    Event::MusingResponse(response) => {
+                        update::update_on_response(self, response)
+                    }
+                    Event::Refresh => self.connection.send(MusingRequest::StateDelta),
                 },
                 Err(_) => bail!("event handler crashed"),
             }
-            terminal.draw(|frame| view::render(self, frame, &mut cover_art_state))?;
+            terminal.draw(|frame| view::render(self, frame))?;
             if let AppState::Done = self.app_state {
                 break;
             }

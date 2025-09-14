@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::panic;
+use crate::{model::connection::MusingResponse, panic};
 
 // in ms
 const REFRESH_TIMEOUT: u64 = 250;
@@ -16,6 +16,7 @@ const POLL_TIMEOUT: u64 = 16;
 pub enum Event {
     Keypress(event::KeyEvent),
     CoverArtResize(Result<ResizeResponse, Errors>),
+    MusingResponse(MusingResponse),
     Refresh,
 }
 

@@ -11,7 +11,6 @@ use crate::{
     constants,
     model::{
         common::FocusedPart,
-        cover_art::CoverArtState,
         search::{Search, SearchState},
     },
 };
@@ -129,7 +128,7 @@ fn render_search_box(app: &App, frame: &mut Frame, area: Rect, search: &Search) 
     frame.render_widget(search_box, area);
 }
 
-fn render_cover_screen(app: &mut App, frame: &mut Frame, cover_art_state: &mut CoverArtState) {
+fn render_cover_screen(app: &mut App, frame: &mut Frame) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
@@ -139,7 +138,7 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame, cover_art_state: &mut C
         ])
         .split(frame.area());
     render_header(app, frame, layout[0]);
-    if cover_art_state.draw {
+    if app.cover_art_state.draw {
         let size = (0.5 * layout[1].width.min(layout[1].height) as f32) as u16;
         let centered = Layout::default()
             .direction(Direction::Vertical)
@@ -154,7 +153,7 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame, cover_art_state: &mut C
         frame.render_stateful_widget(
             StatefulImage::new().resize(Resize::Scale(None)),
             centered[0],
-            &mut cover_art_state.state,
+            &mut app.cover_art_state.state,
         );
     }
     render_footer(app, frame, layout[2]);
@@ -354,9 +353,9 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
     render_footer(app, frame, layout[2]);
 }
 
-pub fn render(app: &mut App, frame: &mut Frame, cover_art_state: &mut CoverArtState) {
+pub fn render(app: &mut App, frame: &mut Frame) {
     match app.screen {
-        Screen::Cover => render_cover_screen(app, frame, cover_art_state),
+        Screen::Cover => render_cover_screen(app, frame),
         Screen::Queue => render_queue_screen(app, frame),
         Screen::Library => render_library_screen(app, frame),
     }
