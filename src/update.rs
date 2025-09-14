@@ -203,137 +203,109 @@ pub fn update_library(app: &mut App) -> Result<()> {
     Ok(())
 }
 
-pub fn update_app(app: &mut App, msg: Message) {
-    let _ = app.status_msg.take();
-    let res = match msg {
-        Message::SwitchScreen(screen) => {
-            app.screen = screen;
-            Ok(())
-        }
-        Message::SwitchAppState(app_state) => {
-            app.app_state = app_state;
-            Ok(())
-        }
+pub fn update_app(app: &mut App, msg: Message) -> Result<()> {
+    match msg {
+        Message::SwitchScreen(screen) => app.screen = screen,
+        Message::SwitchAppState(app_state) => app.app_state = app_state,
         Message::Update(update) => match update {
-            AppUpdate::MusingUpdate => update_library(app),
-            AppUpdate::Scroll(delta) => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.scroll(delta),
-                    Screen::Library => app.library_state.scroll(delta),
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::ScrollTop => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.scroll_to_top(),
-                    Screen::Library => app.library_state.scroll_to_top(),
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::ScrollBottom => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.scroll_to_bottom(),
-                    Screen::Library => app.library_state.scroll_to_bottom(),
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::StartSearch => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.search_on(),
-                    Screen::Library => match app.library_state.focused_part {
-                        FocusedPart::Groups => app.library_state.search_on(),
-                        FocusedPart::Child(i) => {
-                            app.library_state.children[i].search_on();
-                        }
-                    },
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::EndSearch => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.search.off(),
-                    Screen::Library => match app.library_state.focused_part {
-                        FocusedPart::Groups => app.library_state.search.off(),
-                        FocusedPart::Child(i) => {
-                            app.library_state.children[i].search.off();
-                        }
-                    },
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::IdleSearch => {
-                match app.screen {
-                    Screen::Queue => app.queue_state.search.idle(),
-                    Screen::Library => match app.library_state.focused_part {
-                        FocusedPart::Groups => app.library_state.search.idle(),
-                        FocusedPart::Child(i) => {
-                            app.library_state.children[i].search.idle();
-                        }
-                    },
-                    _ => (),
-                }
-                Ok(())
-            }
-            AppUpdate::UpdateSearch => {
-                match app.screen {
-                    Screen::Queue => {
-                        let pattern = app.queue_state.search.input.value().to_string();
-                        app.queue_state.search.pattern_update(pattern);
+            AppUpdate::MusingUpdate => update_library(app)?,
+            AppUpdate::Scroll(delta) => match app.screen {
+                Screen::Queue => app.queue_state.scroll(delta),
+                Screen::Library => app.library_state.scroll(delta),
+                _ => (),
+            },
+            AppUpdate::ScrollTop => match app.screen {
+                Screen::Queue => app.queue_state.scroll_to_top(),
+                Screen::Library => app.library_state.scroll_to_top(),
+                _ => (),
+            },
+            AppUpdate::ScrollBottom => match app.screen {
+                Screen::Queue => app.queue_state.scroll_to_bottom(),
+                Screen::Library => app.library_state.scroll_to_bottom(),
+                _ => (),
+            },
+            AppUpdate::StartSearch => match app.screen {
+                Screen::Queue => app.queue_state.search_on(),
+                Screen::Library => match app.library_state.focused_part {
+                    FocusedPart::Groups => app.library_state.search_on(),
+                    FocusedPart::Child(i) => {
+                        app.library_state.children[i].search_on();
                     }
-                    Screen::Library => match app.library_state.focused_part {
-                        FocusedPart::Groups => {
-                            let pattern = app.library_state.search.input.value().to_string();
-                            app.library_state.search.pattern_update(pattern);
-                        }
-                        FocusedPart::Child(i) => {
-                            let child = &app.library_state.children[i];
-                            let pattern = child.search.input.value().to_string();
-                            app.library_state.children[i].search.pattern_update(pattern);
-                        }
-                    },
-                    _ => (),
+                },
+                _ => (),
+            },
+            AppUpdate::EndSearch => match app.screen {
+                Screen::Queue => app.queue_state.search.off(),
+                Screen::Library => match app.library_state.focused_part {
+                    FocusedPart::Groups => app.library_state.search.off(),
+                    FocusedPart::Child(i) => {
+                        app.library_state.children[i].search.off();
+                    }
+                },
+                _ => (),
+            },
+            AppUpdate::IdleSearch => match app.screen {
+                Screen::Queue => app.queue_state.search.idle(),
+                Screen::Library => match app.library_state.focused_part {
+                    FocusedPart::Groups => app.library_state.search.idle(),
+                    FocusedPart::Child(i) => {
+                        app.library_state.children[i].search.idle();
+                    }
+                },
+                _ => (),
+            },
+            AppUpdate::UpdateSearch => match app.screen {
+                Screen::Queue => {
+                    let pattern = app.queue_state.search.input.value().to_string();
+                    app.queue_state.search.pattern_update(pattern);
                 }
-                Ok(())
-            }
+                Screen::Library => match app.library_state.focused_part {
+                    FocusedPart::Groups => {
+                        let pattern = app.library_state.search.input.value().to_string();
+                        app.library_state.search.pattern_update(pattern);
+                    }
+                    FocusedPart::Child(i) => {
+                        let child = &app.library_state.children[i];
+                        let pattern = child.search.input.value().to_string();
+                        app.library_state.children[i].search.pattern_update(pattern);
+                    }
+                },
+                _ => (),
+            },
             AppUpdate::FocusLeft => {
                 if let Screen::Library = app.screen {
                     app.library_state.focus_left();
                 }
-                Ok(())
             }
             AppUpdate::FocusRight => {
                 if let Screen::Library = app.screen {
                     app.library_state.focus_right();
                 }
-                Ok(())
             }
-            AppUpdate::AddToQueue => match app.library_state.selected_songs() {
-                Some(songs) => app.connection.add_to_queue(songs),
-                None => Ok(()),
-            },
-            AppUpdate::Play => match app.queue_state.unordered_selected() {
-                Some(i) => app.connection.play(app.musing_state.queue[i].id),
-                None => Ok(()),
-            },
-            AppUpdate::RemoveFromQueue => match app.queue_state.unordered_selected() {
-                Some(i) => app.connection.remove(app.musing_state.queue[i].id),
-                None => Ok(()),
-            },
-            AppUpdate::Seek(seconds) => app.connection.seek(seconds),
-            AppUpdate::Speed(speed) => app.connection.speed(speed),
-            AppUpdate::Volume(delta) => app.connection.volume(delta),
-            other => app.connection.no_response(&enum_stringify!(other)),
+            AppUpdate::AddToQueue => {
+                if let Some(songs) = app.library_state.selected_songs() {
+                    app.connection.add_to_queue(songs)?;
+                    app.library_state.scroll(1);
+                }
+            }
+            AppUpdate::Play => {
+                if let Some(i) = app.queue_state.unordered_selected() {
+                    app.connection.play(app.musing_state.queue[i].id)?;
+                }
+            }
+            AppUpdate::RemoveFromQueue => {
+                if let Some(i) = app.queue_state.unordered_selected() {
+                    app.connection.remove(app.musing_state.queue[i].id)?;
+                }
+            }
+            AppUpdate::Seek(seconds) => app.connection.seek(seconds)?,
+            AppUpdate::Speed(speed) => app.connection.speed(speed)?,
+            AppUpdate::Volume(delta) => app.connection.volume(delta)?,
+            other => app.connection.no_response(&enum_stringify!(other))?,
         },
-    };
-
-    if let Err(e) = res {
-        app.status_msg = Some(e.to_string());
     }
+
+    Ok(())
 }
 
 pub fn update_state(app: &mut App, delta: MusingStateDelta, cover_art_state: &mut CoverArtState) {

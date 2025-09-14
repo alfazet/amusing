@@ -10,7 +10,7 @@ use std::{
 use crate::panic;
 
 // in ms
-const REFRESH_TIMEOUT: u64 = 125;
+const REFRESH_TIMEOUT: u64 = 250;
 const POLL_TIMEOUT: u64 = 16;
 
 pub enum Event {

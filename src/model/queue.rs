@@ -27,6 +27,9 @@ impl Default for QueueState {
 
 impl Scroll for QueueState {
     fn scroll(&mut self, delta: i32) {
+        if self.metadata.is_empty() {
+            return;
+        }
         let u_delta = delta.unsigned_abs() as usize;
         let n_rows = self.metadata.len();
         match self.state.selected() {
@@ -50,10 +53,16 @@ impl Scroll for QueueState {
     }
 
     fn scroll_to_top(&mut self) {
+        if self.metadata.is_empty() {
+            return;
+        }
         self.state.select_first();
     }
 
     fn scroll_to_bottom(&mut self) {
+        if self.metadata.is_empty() {
+            return;
+        }
         self.state
             .select(Some(self.metadata.len().saturating_sub(1)));
     }

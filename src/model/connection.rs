@@ -66,6 +66,7 @@ impl Connection {
         paths: &[&str],
         tags: Option<&[&str]>,
     ) -> Result<Vec<HashMap<String, String>>> {
+        log::error!("requesting metadata of {:?}", paths);
         let mut request = Map::new();
         request.insert("kind".into(), "metadata".into());
         request.insert("paths".into(), paths.into());
@@ -79,14 +80,21 @@ impl Connection {
             && let Some(mut metadata) = obj.remove("metadata")
             && let Some(metadata) = metadata.as_array_mut()
         {
+            log::error!("{:?}", metadata);
             let metadata: Vec<_> = metadata
                 .iter()
-                .filter_map(|v| v.as_object())
-                .map(|obj| {
-                    obj.iter()
-                        .filter(|(_, v)| v.is_string())
-                        .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-                        .collect::<HashMap<_, _>>()
+                .map(|v| match v.as_object() {
+                    Some(obj) => obj
+                        .iter()
+                        .map(|(k, v)| {
+                            if v.is_string() {
+                                (k.clone(), v.as_str().unwrap().to_string())
+                            } else {
+                                (k.clone(), String::from(constants::UNKNOWN))
+                            }
+                        })
+                        .collect::<HashMap<_, _>>(),
+                    None => HashMap::new(),
                 })
                 .collect();
 

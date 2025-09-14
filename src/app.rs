@@ -102,7 +102,11 @@ impl App {
                 Ok(event) => match event {
                     Event::Keypress(ev) => {
                         if let Some(msg) = update::translate_key_event(self, ev) {
-                            update::update_app(self, msg);
+                            let _ = self.status_msg.take();
+                            if let Err(e) = update::update_app(self, msg) {
+                                self.status_msg =
+                                    Some(format!("couldn't connect to musing ({})", e));
+                            }
                         }
                     }
                     Event::Refresh => {

@@ -130,6 +130,9 @@ impl Default for LibraryState {
 
 impl Scroll for LibraryState {
     fn scroll(&mut self, delta: i32) {
+        if self.children.is_empty() {
+            return;
+        }
         let u_delta = delta.unsigned_abs() as usize;
         let (n_rows, state) = match self.focused_part {
             FocusedPart::Groups => {
@@ -166,6 +169,9 @@ impl Scroll for LibraryState {
     }
 
     fn scroll_to_top(&mut self) {
+        if self.children.is_empty() {
+            return;
+        }
         match self.focused_part {
             FocusedPart::Groups => self.state.select_first(),
             FocusedPart::Child(i) => self.children[i].state.select_first(),
@@ -173,6 +179,9 @@ impl Scroll for LibraryState {
     }
 
     fn scroll_to_bottom(&mut self) {
+        if self.children.is_empty() {
+            return;
+        }
         match self.focused_part {
             FocusedPart::Groups => self
                 .state
@@ -259,9 +268,11 @@ impl LibraryState {
                 .selected_child()
                 .map(|child| &child.group.paths)
                 .map(|v| &**v),
-            FocusedPart::Child(i) => self.children[i]
-                .unordered_selected()
-                .map(|j| &self.children[i].group.paths[j..=j]),
+            FocusedPart::Child(i) => self.children.get(i).and_then(|child| {
+                child
+                    .unordered_selected()
+                    .map(|j| &self.children[i].group.paths[j..=j])
+            }),
         }
     }
 

@@ -40,16 +40,14 @@ fn run(config: Config) -> Result<()> {
 
 fn main() {
     let log_file = dirs::cache_dir().unwrap().join("amusing.log");
-    let _ = simple_logging::log_to_file(log_file, log::LevelFilter::Error);
+    let _ = simple_logging::log_to_file(log_file, log::LevelFilter::Warn);
     panic::register_backtrace_panic_handler();
     let cli_opts = CliOptions::parse();
-    let config = match Config::try_from_file(cli_opts.config_file.as_deref())
-        .map(|c| c.merge_with_cli(cli_opts))
-    {
-        Ok(config) => config,
+    let config = match Config::try_from_file(cli_opts.config_file.as_deref()) {
+        Ok(config) => config.merge_with_cli(cli_opts),
         Err(e) => {
-            eprintln!("config error ({}), falling back to default config", e);
-            Config::default()
+            log::warn!("issue with loading config ({}), falling back to default", e);
+            Config::default().merge_with_cli(cli_opts)
         }
     };
 
