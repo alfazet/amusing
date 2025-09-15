@@ -3,6 +3,7 @@ name = "amusing"
 version = "1.0.0"
 edition = "2024"
 description = "A Musing client"
+authors = ["Antoni Zasada (alfazet)"]
 keywords = ["music", "musing", "client", "tui"]
 license = "MIT"
 readme = "README.md"
