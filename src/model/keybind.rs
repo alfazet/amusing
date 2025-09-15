@@ -66,6 +66,10 @@ impl Default for Keybind {
             Binding::Quit,
         );
         keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('c'), Mods::CONTROL)],
+            Binding::Quit,
+        );
+        keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Char('N'), Mods::NONE)],
             Binding::Next,
         );
@@ -132,7 +136,15 @@ impl Default for Keybind {
             Binding::ScrollManyUp,
         );
         keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::PageUp, Mods::CONTROL)],
+            Binding::ScrollManyUp,
+        );
+        keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Char('d'), Mods::CONTROL)],
+            Binding::ScrollManyDown,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::PageDown, Mods::CONTROL)],
             Binding::ScrollManyDown,
         );
         keybind.add_keybind(
@@ -143,7 +155,15 @@ impl Default for Keybind {
             Binding::ScrollTop,
         );
         keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Home, Mods::NONE)],
+            Binding::ScrollTop,
+        );
+        keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Char('G'), Mods::NONE)],
+            Binding::ScrollBottom,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::End, Mods::NONE)],
             Binding::ScrollBottom,
         );
         keybind.add_keybind(
@@ -202,7 +222,6 @@ impl Default for Keybind {
             &[KeyEvent::new(KeyCode::Char('U'), Mods::NONE)],
             Binding::MusingUpdate,
         );
-
         keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Char('1'), Mods::NONE)],
             Binding::ScreenCover,
@@ -324,13 +343,6 @@ fn try_into_key_events(s: impl AsRef<str>) -> Option<Vec<KeyEvent>> {
     for part in s.as_ref().split_whitespace() {
         if let Some(code) = part.strip_prefix("C-").and_then(try_into_code) {
             res.push(KeyEvent::new(code, KeyModifiers::CONTROL));
-        } else if let Some(code) = part.strip_prefix("S-").and_then(try_into_code) {
-            res.push(KeyEvent::new(code, KeyModifiers::SHIFT));
-        } else if let Some(code) = part.strip_prefix("C-S-").and_then(try_into_code) {
-            res.push(KeyEvent::new(
-                code,
-                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-            ));
         } else if let Some(code) = try_into_code(part) {
             res.push(KeyEvent::new(code, KeyModifiers::NONE));
         } else {

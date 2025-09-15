@@ -81,9 +81,10 @@ impl LibraryChildState {
         self.group
             .metadata
             .iter()
-            .map(|m| {
-                let repr = m.get("tracktitle");
-                repr.map(|s| unidecode::unidecode(s)).unwrap_or_default()
+            .zip(self.group.paths.iter())
+            .map(|(m, path)| {
+                let repr = m.get("tracktitle").unwrap_or(path);
+                unidecode::unidecode(repr)
             })
             .collect()
     }
@@ -149,19 +150,16 @@ impl Scroll for LibraryState {
         };
         match state.selected() {
             Some(r) => {
-                // wrapping scroll
                 if delta < 0 {
                     if r >= u_delta {
                         state.scroll_up_by(u_delta as u16);
                     } else {
                         state.select(Some(n_rows - (u_delta - r)));
                     }
+                } else if r + u_delta < n_rows {
+                    state.scroll_down_by(u_delta as u16);
                 } else {
-                    if r + u_delta < n_rows {
-                        state.scroll_down_by(u_delta as u16);
-                    } else {
-                        state.select(Some(u_delta - (n_rows - r)));
-                    }
+                    state.select(Some(u_delta - (n_rows - r)));
                 }
             }
             None => state.select_first(),
@@ -222,6 +220,7 @@ impl LibraryState {
                 let mut repr = String::new();
                 for value in &child.id_comb {
                     repr += value;
+                    repr.push(' ');
                 }
 
                 unidecode::unidecode(&repr)

@@ -40,12 +40,10 @@ impl Scroll for QueueState {
                     } else {
                         self.state.select(Some(n_rows - (u_delta - r)));
                     }
+                } else if r + u_delta < n_rows {
+                    self.state.scroll_down_by(u_delta as u16);
                 } else {
-                    if r + u_delta < n_rows {
-                        self.state.scroll_down_by(u_delta as u16);
-                    } else {
-                        self.state.select(Some(u_delta - (n_rows - r)));
-                    }
+                    self.state.select(Some(u_delta - (n_rows - r)));
                 }
             }
             None => self.state.select_first(),
@@ -86,6 +84,7 @@ impl QueueState {
                 for tag in &self.displayed_tags {
                     if let Some(value) = m.get(tag) {
                         repr += value;
+                        repr.push(' ');
                     }
                 }
 

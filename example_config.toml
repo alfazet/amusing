@@ -1,0 +1,117 @@
+# an example amusing.toml config file
+# place it in ~/.config/amusing/amusing.toml and modify to your liking 
+#
+# you can also place it in any other path,
+# just remember to run amusing with -c=your/config/file/path
+
+# port on which musing is listening for connections
+port = 2137
+
+# the length (in seconds) of one seek forwards/backwards
+seek_step = 5
+
+# the increment/decrement of one volume change
+volume_step = 5
+
+# the percentage point increment/decrement of one speed change
+speed_step = 5
+
+# tags that will be used to group songs in the library
+# for a list of supported tags see: https://github.com/alfazet/musing/blob/main/DOCS.md#supported-tags
+library_group_by = ["albumartist", "album"]
+
+# theme configs
+# each of the configurable UI elements can have its
+# foreground color (fg) and background color (bg) set,
+#
+# colors can either be specified as one of the 16 ANSI color names:
+# [white, black, red, green, yellow, blue, magenta, cyan, gray, darkdray,
+# lightred, lightgreen, lightyellow, lightblue, lightmagenta, lightcyan]
+# or as a "#RRGGBB" hex string
+#
+# you can also apply modifier(s), any of:
+# [BOLD, DIM, ITALIC, UNDERLINED, SLOW_BLINK, RAPID_BLINK, REVERSED, HIDDEN, CROSSED_OUT]
+# their names need are case-sensitive, and in order to apply many modifiers separate their names
+# with the pipe '|' character (see example below)
+[theme.current_title]
+fg = "red"
+modifier = "BOLD | ITALIC"
+
+[theme.current_artist]
+fg = "lightmagenta"
+modifier = "BOLD"
+
+[theme.current_album]
+fg = "lightmagenta"
+modifier = "BOLD"
+
+[theme.selection_primary]
+fg = "blue"
+modifier = "REVERSED"
+
+[theme.selection_secondary]
+fg = "blue"
+
+[theme.search_box]
+fg = "blue"
+
+[theme.total_duration]
+fg = "cyan"
+
+[theme.progress_bar_done]
+fg = "cyan"
+
+# an empty style is also possible
+# it will be the same as your default terminal text
+[theme.progress_bar_rest]
+
+# keybinding configs
+# use C-<key> to add a Ctrl modifier before a key
+#
+# to create bindings that require multiple keys to be pressed in sequence,
+# put spaces between those keys (for example a "C-x C-p" binding means that first Ctrl+x, then Ctrl+p must be pressed)
+#
+# bindings are case-sensitive, e.g. "q" means that the q key by itself,
+# whereas "Q" means Shift+q (as if you were typing a capital letter)
+#
+# available special keys are: [<SPACE>, <UP_ARROW>, <DOWN_ARROW>, <LEFT_ARROW>, <RIGHT_ARROW>,
+# <ENTER>, <ESCAPE>, <TAB>, <BACKSPACE>, <DELETE>, <HOME>, <END>, <PAGE_UP>, <PAGE_DOWN>]
+# (the angle brackets are part of their names)
+#
+# to map multiple key combinations to the same binding, make an array
+[keybind]
+quit = ["q", "C-c"]
+next = "N"
+previous = "P"
+pause = "p"
+resume = "o"
+toggle = " "
+stop = "S"
+play = "<ENTER>"
+seek_forwards = "]"
+seek_backwards = "["
+speed_up = ">"
+speed_down = "<"
+volume_up = "="
+volume_down = "-"
+scroll_up = ["k", "<UP_ARROW>"]
+scroll_down = ["j", "<DOWN_ARROW>"]
+scroll_many_up = ["C-u", "<PAGE_UP>"]
+scroll_many_down = ["C-d", "<PAGE_DOWN>"]
+scroll_top = ["g g", "<HOME>"]
+scroll_bottom = ["G", "<END>"]
+focus_left = ["h", "<LEFT_ARROW>"]
+focus_right = ["l", "<RIGHT_ARROW>"]
+start_search = "/"
+end_search = "<ESCAPE>"
+add_to_queue = "a"
+remove_from_queue = "d"
+clear_queue = "<DELETE>"
+mode_gapless = "t"
+mode_random = "r"
+mode_single = "e"
+mode_sequential = "w"
+musing_update = "U"
+screen_cover = "1"
+screen_queue = "2"
+screen_library = "3"

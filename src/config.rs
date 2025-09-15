@@ -17,10 +17,6 @@ pub struct CliOptions {
     /// Path to the config file (default: <config_dir>/amusing/amusing.toml).
     #[arg(short = 'c', long = "config")]
     pub config_file: Option<PathBuf>,
-
-    /// Port on which your musing instance is listening (default: 2137).
-    #[arg(short = 'p', long = "port")]
-    pub port: Option<u16>,
 }
 
 pub struct Config {
@@ -92,12 +88,5 @@ impl Config {
         }
 
         Ok(config)
-    }
-
-    pub fn merge_with_cli(self, cli_opts: CliOptions) -> Self {
-        Self {
-            port: cli_opts.port.unwrap_or(self.port),
-            ..self
-        }
     }
 }

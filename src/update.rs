@@ -166,11 +166,15 @@ pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Messa
 pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message> {
     app.key_events.push(ev);
     let default_translation = KeybindNode::Terminal(Binding::Other);
-    let translation = app
+    let mut translation = app
         .config
         .keybind
         .translate(&app.key_events)
         .unwrap_or(&default_translation);
+    // ignore normal keybinds if we're searching
+    if app.searching && !matches!(translation, KeybindNode::Terminal(Binding::EndSearch)) {
+        translation = &KeybindNode::Terminal(Binding::Other);
+    }
     match translation {
         KeybindNode::Terminal(binding) => {
             let res = match app.screen {
@@ -213,33 +217,51 @@ pub fn update_on_message(app: &mut App, msg: Message) {
                 _ => (),
             },
             AppUpdate::StartSearch => match app.screen {
-                Screen::Queue => app.queue_state.search_on(),
-                Screen::Library => match app.library_state.focused_part {
-                    FocusedPart::Groups => app.library_state.search_on(),
-                    FocusedPart::Child(i) => {
-                        app.library_state.children[i].search_on();
-                    }
-                },
+                Screen::Queue => {
+                    app.queue_state.search_on();
+                    app.searching = true;
+                }
+                Screen::Library => {
+                    match app.library_state.focused_part {
+                        FocusedPart::Groups => app.library_state.search_on(),
+                        FocusedPart::Child(i) => {
+                            app.library_state.children[i].search_on();
+                        }
+                    };
+                    app.searching = true
+                }
                 _ => (),
             },
             AppUpdate::EndSearch => match app.screen {
-                Screen::Queue => app.queue_state.search.off(),
-                Screen::Library => match app.library_state.focused_part {
-                    FocusedPart::Groups => app.library_state.search.off(),
-                    FocusedPart::Child(i) => {
-                        app.library_state.children[i].search.off();
-                    }
-                },
+                Screen::Queue => {
+                    app.queue_state.search.off();
+                    app.searching = false;
+                }
+                Screen::Library => {
+                    match app.library_state.focused_part {
+                        FocusedPart::Groups => app.library_state.search.off(),
+                        FocusedPart::Child(i) => {
+                            app.library_state.children[i].search.off();
+                        }
+                    };
+                    app.searching = false
+                }
                 _ => (),
             },
             AppUpdate::IdleSearch => match app.screen {
-                Screen::Queue => app.queue_state.search.idle(),
-                Screen::Library => match app.library_state.focused_part {
-                    FocusedPart::Groups => app.library_state.search.idle(),
-                    FocusedPart::Child(i) => {
-                        app.library_state.children[i].search.idle();
-                    }
-                },
+                Screen::Queue => {
+                    app.queue_state.search.idle();
+                    app.searching = false;
+                }
+                Screen::Library => {
+                    match app.library_state.focused_part {
+                        FocusedPart::Groups => app.library_state.search.idle(),
+                        FocusedPart::Child(i) => {
+                            app.library_state.children[i].search.idle();
+                        }
+                    };
+                    app.searching = false;
+                }
                 _ => (),
             },
             AppUpdate::UpdateSearch => match app.screen {
@@ -350,10 +372,7 @@ pub fn update_library(app: &mut App) {
     ));
 }
 
-pub fn update_on_response(
-    app: &mut App,
-    response: MusingResponse,
-) {
+pub fn update_on_response(app: &mut App, response: MusingResponse) {
     match response {
         MusingResponse::Error(e) => app.status_msg = Some(format!("connection error: {}", e)),
         MusingResponse::Metadata(meta) => {

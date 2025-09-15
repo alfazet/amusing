@@ -44,10 +44,10 @@ fn main() {
     panic::register_backtrace_panic_handler();
     let cli_opts = CliOptions::parse();
     let config = match Config::try_from_file(cli_opts.config_file.as_deref()) {
-        Ok(config) => config.merge_with_cli(cli_opts),
+        Ok(config) => config,
         Err(e) => {
             log::warn!("issue with loading config ({}), falling back to default", e);
-            Config::default().merge_with_cli(cli_opts)
+            Config::default()
         }
     };
 

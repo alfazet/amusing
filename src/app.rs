@@ -51,6 +51,7 @@ pub struct App {
     pub cover_art_state: CoverArtState,
     pub key_events: Vec<KeyEvent>,
     pub status_msg: Option<String>,
+    pub searching: bool,
     pub config: AppConfig,
     tx: std_chan::Sender<Event>,
     rx: std_chan::Receiver<Event>,
@@ -77,6 +78,7 @@ impl App {
         let cover_art_state = CoverArtState::try_new(tx.clone())?;
         let key_events = Vec::new();
         let status_msg = None;
+        let searching = false;
         let config = AppConfig {
             theme,
             keybind,
@@ -95,6 +97,7 @@ impl App {
             cover_art_state,
             key_events,
             status_msg,
+            searching,
             config,
             tx,
             rx,
@@ -103,8 +106,6 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
         update::update_library(self);
-        // TODO: move cover_art_state to self because now it should be easy
-        // let mut cover_art_state = CoverArtState::try_new(self.tx.clone())?;
         event_handler::run(self.tx.clone());
 
         loop {
@@ -118,12 +119,8 @@ impl App {
                             update::update_on_message(self, msg);
                         }
                     }
-                    Event::CoverArtResize(redraw) => {
-                        update::update_cover_art(self, redraw?)
-                    }
-                    Event::MusingResponse(response) => {
-                        update::update_on_response(self, response)
-                    }
+                    Event::CoverArtResize(redraw) => update::update_cover_art(self, redraw?),
+                    Event::MusingResponse(response) => update::update_on_response(self, response),
                     Event::Refresh => self.connection.send(MusingRequest::StateDelta),
                 },
                 Err(_) => bail!("event handler crashed"),
