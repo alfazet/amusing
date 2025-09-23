@@ -1,37 +1,25 @@
 use ratatui::widgets::TableState;
-use std::collections::HashMap;
 
 use crate::model::{
-    common::Scroll,
+    common::{Scroll, SongGroup},
     search::{Search, SearchState},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct QueueState {
     pub state: TableState,
-    pub metadata: Vec<HashMap<String, String>>,
-    pub displayed_tags: Vec<String>, // tags to be displayed to the user
+    pub group: SongGroup,
+    pub queue_tags: Vec<String>, // tags to be displayed to the user
     pub search: Search,
-}
-
-impl Default for QueueState {
-    fn default() -> Self {
-        Self {
-            state: TableState::default(),
-            metadata: Vec::new(),
-            displayed_tags: vec!["tracktitle".into(), "artist".into(), "album".into()],
-            search: Search::default(),
-        }
-    }
 }
 
 impl Scroll for QueueState {
     fn scroll(&mut self, delta: i32) {
-        if self.metadata.is_empty() {
+        if self.group.is_empty() {
             return;
         }
         let u_delta = delta.unsigned_abs() as usize;
-        let n_rows = self.metadata.len();
+        let n_rows = self.group.len();
         match self.state.selected() {
             Some(r) => {
                 if delta < 0 {
@@ -51,22 +39,30 @@ impl Scroll for QueueState {
     }
 
     fn scroll_to_top(&mut self) {
-        if self.metadata.is_empty() {
+        if self.group.is_empty() {
             return;
         }
         self.state.select_first();
     }
 
     fn scroll_to_bottom(&mut self) {
-        if self.metadata.is_empty() {
+        if self.group.is_empty() {
             return;
         }
-        self.state
-            .select(Some(self.metadata.len().saturating_sub(1)));
+        self.state.select(Some(self.group.len().saturating_sub(1)));
     }
 }
 
 impl QueueState {
+    pub fn new(queue_tags: Vec<String>) -> Self {
+        Self {
+            state: TableState::default(),
+            group: SongGroup::default(),
+            queue_tags,
+            search: Search::default(),
+        }
+    }
+
     pub fn search_on(&mut self) {
         self.scroll_to_top();
         self.search.on(self.metadata_to_repr());
@@ -77,11 +73,12 @@ impl QueueState {
     }
 
     pub fn metadata_to_repr(&self) -> Vec<String> {
-        self.metadata
+        self.group
+            .metadata
             .iter()
             .map(|m| {
                 let mut repr = String::new();
-                for tag in &self.displayed_tags {
+                for tag in &self.queue_tags {
                     if let Some(value) = m.get(tag) {
                         repr += value;
                         repr.push(' ');
@@ -93,19 +90,14 @@ impl QueueState {
             .collect()
     }
 
-    pub fn ordered_metadata(&self) -> Vec<&HashMap<String, String>> {
+    pub fn ordered_group(&self) -> SongGroup {
         let search = &self.search;
         match search.state {
-            SearchState::Off => self.metadata.iter().collect(),
+            SearchState::Off => self.group.clone(),
             _ => {
-                let mut ordered = Vec::with_capacity(self.metadata.len());
                 // clone not to hold up the guard
                 let order = { search.result.read().unwrap().clone() };
-                for m in order.iter().filter_map(|&i| self.metadata.get(i)) {
-                    ordered.push(m);
-                }
-
-                ordered
+                self.group.new_ordered(&order)
             }
         }
     }

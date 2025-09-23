@@ -360,6 +360,7 @@ pub fn update_queue(app: &mut App) {
         .iter()
         .map(|song| song.path.as_str().to_string())
         .collect();
+    app.queue_state.group.paths = paths.clone();
     app.connection.send(MusingRequest::Metadata(paths, None));
 }
 
@@ -376,7 +377,7 @@ pub fn update_on_response(app: &mut App, response: MusingResponse) {
     match response {
         MusingResponse::Error(e) => app.status_msg = Some(format!("connection error: {}", e)),
         MusingResponse::Metadata(meta) => {
-            app.queue_state.metadata = meta;
+            app.queue_state.group.metadata = meta;
             app.queue_state
                 .search
                 .list_update(app.queue_state.metadata_to_repr());

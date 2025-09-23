@@ -1,7 +1,7 @@
 # an example amusing.toml config file
-# place it in ~/.config/amusing/amusing.toml and modify to your liking 
+# for it to take effect, place it in ~/.config/amusing
 #
-# you can also place it in any other path,
+# you can still place it in any other path,
 # just remember to run amusing with -c=your/config/file/path
 
 # port on which musing is listening for connections
@@ -19,6 +19,10 @@ speed_step = 5
 # tags that will be used to group songs in the library
 # for a list of supported tags see: https://github.com/alfazet/musing/blob/main/DOCS.md#supported-tags
 library_group_by = ["albumartist", "album"]
+
+# tags that will be displayed for each song in the queue
+# for the list of supported tags see above
+queue_tags = ["tracktitle", "artist", "album"]
 
 # theme configs
 # each of the configurable UI elements can have its

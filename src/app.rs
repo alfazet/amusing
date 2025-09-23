@@ -67,13 +67,14 @@ impl App {
             volume_step,
             speed_step,
             library_group_by,
+            queue_tags,
         } = config;
         let (tx, rx) = std_chan::channel();
         let connection = Connection::try_new(port, tx.clone())?;
         let app_state = AppState::default();
         let screen = Screen::default();
         let musing_state = MusingState::default();
-        let queue_state = QueueState::default();
+        let queue_state = QueueState::new(queue_tags);
         let library_state = LibraryState::new(library_group_by);
         let cover_art_state = CoverArtState::try_new(tx.clone())?;
         let key_events = Vec::new();

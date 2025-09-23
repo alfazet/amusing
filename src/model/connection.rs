@@ -188,13 +188,7 @@ pub fn metadata(
             .map(|v| match v.as_object() {
                 Some(obj) => obj
                     .iter()
-                    .map(|(k, v)| {
-                        if v.is_string() {
-                            (k.clone(), v.as_str().unwrap().to_string())
-                        } else {
-                            (k.clone(), String::from(constants::UNKNOWN))
-                        }
-                    })
+                    .filter_map(|(k, v)| v.as_str().map(|v| (k.clone(), v.to_string())))
                     .collect::<HashMap<_, _>>(),
                 None => HashMap::new(),
             })

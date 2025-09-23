@@ -27,6 +27,7 @@ pub struct Config {
     pub volume_step: i8,
     pub speed_step: i16,
     pub library_group_by: Vec<String>,
+    pub queue_tags: Vec<String>,
 }
 
 impl Default for Config {
@@ -39,6 +40,10 @@ impl Default for Config {
             volume_step: constants::DEFAULT_VOLUME_STEP,
             speed_step: constants::DEFAULT_SPEED_STEP,
             library_group_by: constants::DEFAULT_GROUP_BY
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            queue_tags: constants::DEFAULT_QUEUE_TAGS
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
@@ -79,6 +84,12 @@ impl Config {
                 }
                 ("library_group_by", TomlValue::Array(library_group_by)) => {
                     config.library_group_by = library_group_by
+                        .iter()
+                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect();
+                }
+                ("queue_tags", TomlValue::Array(queue_tags)) => {
+                    config.queue_tags = queue_tags
                         .iter()
                         .filter_map(|s| s.as_str().map(|s| s.to_string()))
                         .collect();

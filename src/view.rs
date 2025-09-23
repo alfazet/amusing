@@ -25,7 +25,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let gapless = app.musing_state.gapless;
     let current = app.musing_state.current;
     let is_stopped = app.musing_state.is_stopped();
-    let metadata = current.and_then(|cur| app.queue_state.metadata.get(cur as usize));
+    let metadata = current.and_then(|cur| app.queue_state.group.metadata.get(cur as usize));
     let path = current
         .and_then(|cur| app.musing_state.queue.get(cur as usize))
         .map(|x| &x.path);
@@ -160,23 +160,28 @@ fn render_cover_screen(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_queue_screen(app: &mut App, frame: &mut Frame) {
-    let metadata = app.queue_state.ordered_metadata();
-    let displayed_data: &Vec<_> = &metadata
+    let group = app.queue_state.ordered_group();
+    let displayed_data: &Vec<_> = &group
+        .metadata
         .iter()
-        .map(|m| {
+        .zip(group.paths.iter())
+        .map(|(m, p)| {
             app.queue_state
-                .displayed_tags
+                .queue_tags
                 .iter()
-                .map(|tag| {
-                    m.get(tag)
+                .map(|tag| match tag.as_str() {
+                    "tracktitle" => m.get(tag).map(|s| s.as_str()).unwrap_or(p).to_string(),
+                    _ => m
+                        .get(tag)
                         .map(|s| s.as_str())
                         .unwrap_or(constants::UNKNOWN)
-                        .to_string()
+                        .to_string(),
                 })
                 .collect::<Vec<_>>()
         })
         .collect();
-    let durations_int: Vec<_> = metadata
+    let durations_int: Vec<_> = group
+        .metadata
         .iter()
         .map(|m| {
             m.get("duration")
@@ -222,9 +227,10 @@ fn render_queue_screen(app: &mut App, frame: &mut Frame) {
     let list = Table::default()
         .rows(rows)
         .widths(
-            (1..=(&(app.queue_state.displayed_tags.len() as u16) + 1))
-                .rev()
-                .map(Constraint::Fill),
+            // (1..=(&(app.queue_state.queue_tags.len() as u16) + 1))
+            //     .rev()
+            //     .map(Constraint::Fill),
+            vec![Constraint::Fill(1); app.queue_state.queue_tags.len()],
         )
         .block(block)
         .row_highlight_style(app.config.theme.selection_primary);

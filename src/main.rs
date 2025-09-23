@@ -46,7 +46,7 @@ fn main() {
     let config = match Config::try_from_file(cli_opts.config_file.as_deref()) {
         Ok(config) => config,
         Err(e) => {
-            log::warn!("issue with loading config ({}), falling back to default", e);
+            eprintln!("issue with loading config ({}), falling back to default", e);
             Config::default()
         }
     };

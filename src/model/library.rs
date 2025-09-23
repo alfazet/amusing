@@ -24,49 +24,6 @@ pub struct LibraryState {
     pub search: Search,
 }
 
-impl SongGroup {
-    fn pair_values(
-        keys: &[String],
-        values: &[Vec<Option<String>>],
-    ) -> Vec<HashMap<String, String>> {
-        let mut res = Vec::new();
-        for values_inner in values.iter() {
-            let mut map = HashMap::new();
-            for (key, value) in keys.iter().zip(values_inner) {
-                if let Some(value) = value {
-                    map.insert(key.clone(), value.clone());
-                }
-            }
-            res.push(map);
-        }
-
-        res
-    }
-
-    pub fn new(
-        metadata_keys: &[String],
-        metadata_values: &[Vec<Option<String>>],
-        paths: &[String],
-    ) -> Self {
-        let metadata = Self::pair_values(metadata_keys, metadata_values);
-        Self {
-            metadata,
-            paths: paths.to_vec(),
-        }
-    }
-
-    pub fn add_songs(
-        &mut self,
-        metadata_keys: &[String],
-        metadata_values: &[Vec<Option<String>>],
-        paths: &[String],
-    ) {
-        self.metadata
-            .extend(Self::pair_values(metadata_keys, metadata_values));
-        self.paths.extend_from_slice(paths);
-    }
-}
-
 impl LibraryChildState {
     pub fn search_on(&mut self) {
         self.state.select_first();
