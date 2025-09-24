@@ -375,11 +375,129 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
     render_footer(app, frame, layout[2]);
 }
 
+fn render_playlists_screen(app: &mut App, frame: &mut Frame) {
+    let (child_highlight, song_highlight) = match &app.playlists_state.focused_part {
+        FocusedPart::Groups => (
+            app.config.theme.selection_primary,
+            app.config.theme.selection_secondary,
+        ),
+        FocusedPart::Child(_) => (
+            app.config.theme.selection_secondary,
+            app.config.theme.selection_primary,
+        ),
+    };
+
+    let children: Vec<_> = app
+        .playlists_state
+        .ordered_children()
+        .iter()
+        .map(|child| Row::new([child.path.clone()]))
+        .collect();
+    let children_block = Block::default()
+        .borders(Borders::ALL)
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let children_list = Table::default()
+        .rows(children)
+        .widths(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .block(children_block)
+        .row_highlight_style(child_highlight);
+
+    let songs = app
+        .playlists_state
+        .selected_child()
+        .map(|child| {
+            let group = child.ordered_group();
+            let mut info = Vec::new();
+            for (meta, path) in group.metadata.iter().zip(group.paths.iter()) {
+                let here: &Vec<_> = &app
+                    .playlists_state
+                    .children_tags
+                    .iter()
+                    .map(|tag| {
+                        meta.get(tag).map(|s| s.to_string()).unwrap_or_else(|| {
+                            if tag == "tracktitle" {
+                                path
+                            } else {
+                                constants::UNKNOWN
+                            }
+                            .to_string()
+                        })
+                    })
+                    .collect();
+                info.push(here.iter().join(" - "));
+            }
+
+            info
+        })
+        .unwrap_or_default();
+    let songs_block = Block::default()
+        .borders(Borders::ALL)
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let song_list = Table::default()
+        .rows(songs.into_iter().map(|song| Row::new([song])))
+        .block(songs_block)
+        .row_highlight_style(song_highlight);
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(frame.area());
+    let middle = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .split(layout[1]);
+    render_header(app, frame, layout[0]);
+    let lhs_search = &app.playlists_state.search;
+    match lhs_search.state {
+        SearchState::Off => {
+            frame.render_stateful_widget(children_list, middle[0], &mut app.playlists_state.state)
+        }
+        _ => {
+            let sublayout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+                .split(middle[0]);
+            frame.render_stateful_widget(
+                children_list,
+                sublayout[0],
+                &mut app.playlists_state.state,
+            );
+            render_search_box(app, frame, sublayout[1], lhs_search);
+        }
+    }
+    if let Some(child) = app.playlists_state.selected_child() {
+        let rhs_search = &child.search;
+        match rhs_search.state {
+            SearchState::Off => {
+                let state = &mut app.playlists_state.selected_child_mut().unwrap().state;
+                frame.render_stateful_widget(song_list, middle[1], state);
+            }
+            _ => {
+                let sublayout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+                    .split(middle[1]);
+                render_search_box(app, frame, sublayout[1], rhs_search);
+                let state = &mut app.playlists_state.selected_child_mut().unwrap().state;
+                frame.render_stateful_widget(song_list, sublayout[0], state);
+            }
+        }
+    }
+    render_footer(app, frame, layout[2]);
+}
+
 pub fn render(app: &mut App, frame: &mut Frame) {
     match app.screen {
         Screen::Cover => render_cover_screen(app, frame),
         Screen::Queue => render_queue_screen(app, frame),
         Screen::Library => render_library_screen(app, frame),
+        Screen::Playlists => render_playlists_screen(app, frame),
     }
 }
 

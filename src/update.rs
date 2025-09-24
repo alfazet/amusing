@@ -136,6 +136,38 @@ fn translate_binding_library_child(app: &mut App, binding: Binding, i: usize) ->
     }
 }
 
+fn translate_binding_playlists_groups(app: &mut App, binding: Binding) -> Option<Message> {
+    let search = &mut app.playlists_state.search;
+    match search.state {
+        SearchState::On => match binding {
+            Binding::EndSearch => Some(Message::Update(AppUpdate::IdleSearch)),
+            _ => {
+                let term_ev = TermEvent::Key(*app.key_events.last().unwrap());
+                search.input.handle_event(&term_ev);
+
+                Some(Message::Update(AppUpdate::UpdateSearch))
+            }
+        },
+        _ => translate_binding_library_both(app, binding),
+    }
+}
+
+fn translate_binding_playlists_child(app: &mut App, binding: Binding, i: usize) -> Option<Message> {
+    let search = &mut app.playlists_state.children[i].search;
+    match search.state {
+        SearchState::On => match binding {
+            Binding::EndSearch => Some(Message::Update(AppUpdate::IdleSearch)),
+            _ => {
+                let term_ev = TermEvent::Key(*app.key_events.last().unwrap());
+                search.input.handle_event(&term_ev);
+
+                Some(Message::Update(AppUpdate::UpdateSearch))
+            }
+        },
+        _ => translate_binding_library_both(app, binding),
+    }
+}
+
 pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Message> {
     match binding {
         Binding::Quit => Some(Message::SwitchAppState(AppState::Done)),
@@ -159,6 +191,7 @@ pub fn translate_binding_common(app: &mut App, binding: Binding) -> Option<Messa
         Binding::ScreenCover => Some(Message::SwitchScreen(Screen::Cover)),
         Binding::ScreenQueue => Some(Message::SwitchScreen(Screen::Queue)),
         Binding::ScreenLibrary => Some(Message::SwitchScreen(Screen::Library)),
+        Binding::ScreenPlaylists => Some(Message::SwitchScreen(Screen::Playlists)),
         _ => None,
     }
 }
@@ -183,6 +216,10 @@ pub fn translate_key_event(app: &mut App, ev: event::KeyEvent) -> Option<Message
                     FocusedPart::Groups => translate_binding_library_groups(app, *binding),
                     FocusedPart::Child(i) => translate_binding_library_child(app, *binding, i),
                 },
+                Screen::Playlists => match app.playlists_state.focused_part {
+                    FocusedPart::Groups => translate_binding_playlists_groups(app, *binding),
+                    FocusedPart::Child(i) => translate_binding_playlists_child(app, *binding, i),
+                },
                 _ => translate_binding_common(app, *binding),
             };
             app.key_events.clear();
@@ -200,20 +237,26 @@ pub fn update_on_message(app: &mut App, msg: Message) {
         Message::SwitchScreen(screen) => app.screen = screen,
         Message::SwitchAppState(app_state) => app.app_state = app_state,
         Message::Update(update) => match update {
-            AppUpdate::MusingUpdate => update_library(app),
+            AppUpdate::MusingUpdate => {
+                update_library(app);
+                update_playlists(app);
+            }
             AppUpdate::Scroll(delta) => match app.screen {
                 Screen::Queue => app.queue_state.scroll(delta),
                 Screen::Library => app.library_state.scroll(delta),
+                Screen::Playlists => app.playlists_state.scroll(delta),
                 _ => (),
             },
             AppUpdate::ScrollTop => match app.screen {
                 Screen::Queue => app.queue_state.scroll_to_top(),
                 Screen::Library => app.library_state.scroll_to_top(),
+                Screen::Playlists => app.playlists_state.scroll_to_top(),
                 _ => (),
             },
             AppUpdate::ScrollBottom => match app.screen {
                 Screen::Queue => app.queue_state.scroll_to_bottom(),
                 Screen::Library => app.library_state.scroll_to_bottom(),
+                Screen::Playlists => app.playlists_state.scroll_to_bottom(),
                 _ => (),
             },
             AppUpdate::StartSearch => match app.screen {
@@ -226,6 +269,15 @@ pub fn update_on_message(app: &mut App, msg: Message) {
                         FocusedPart::Groups => app.library_state.search_on(),
                         FocusedPart::Child(i) => {
                             app.library_state.children[i].search_on();
+                        }
+                    };
+                    app.searching = true
+                }
+                Screen::Playlists => {
+                    match app.playlists_state.focused_part {
+                        FocusedPart::Groups => app.playlists_state.search_on(),
+                        FocusedPart::Child(i) => {
+                            app.playlists_state.children[i].search_on();
                         }
                     };
                     app.searching = true
@@ -246,6 +298,15 @@ pub fn update_on_message(app: &mut App, msg: Message) {
                     };
                     app.searching = false
                 }
+                Screen::Playlists => {
+                    match app.playlists_state.focused_part {
+                        FocusedPart::Groups => app.playlists_state.search.off(),
+                        FocusedPart::Child(i) => {
+                            app.playlists_state.children[i].search.off();
+                        }
+                    };
+                    app.searching = false
+                }
                 _ => (),
             },
             AppUpdate::IdleSearch => match app.screen {
@@ -258,6 +319,15 @@ pub fn update_on_message(app: &mut App, msg: Message) {
                         FocusedPart::Groups => app.library_state.search.idle(),
                         FocusedPart::Child(i) => {
                             app.library_state.children[i].search.idle();
+                        }
+                    };
+                    app.searching = false;
+                }
+                Screen::Playlists => {
+                    match app.playlists_state.focused_part {
+                        FocusedPart::Groups => app.playlists_state.search.idle(),
+                        FocusedPart::Child(i) => {
+                            app.playlists_state.children[i].search.idle();
                         }
                     };
                     app.searching = false;
@@ -280,25 +350,48 @@ pub fn update_on_message(app: &mut App, msg: Message) {
                         app.library_state.children[i].search.pattern_update(pattern);
                     }
                 },
+                Screen::Playlists => match app.playlists_state.focused_part {
+                    FocusedPart::Groups => {
+                        let pattern = app.playlists_state.search.input.value().to_string();
+                        app.playlists_state.search.pattern_update(pattern);
+                    }
+                    FocusedPart::Child(i) => {
+                        let child = &app.playlists_state.children[i];
+                        let pattern = child.search.input.value().to_string();
+                        app.playlists_state.children[i]
+                            .search
+                            .pattern_update(pattern);
+                    }
+                },
                 _ => (),
             },
-            AppUpdate::FocusLeft => {
-                if let Screen::Library = app.screen {
-                    app.library_state.focus_left();
+            AppUpdate::FocusLeft => match app.screen {
+                Screen::Library => app.library_state.focus_left(),
+                Screen::Playlists => app.playlists_state.focus_left(),
+                _ => (),
+            },
+            AppUpdate::FocusRight => match app.screen {
+                Screen::Library => app.library_state.focus_right(),
+                Screen::Playlists => app.playlists_state.focus_right(),
+                _ => (),
+            },
+            AppUpdate::AddToQueue => match app.screen {
+                Screen::Library => {
+                    if let Some(songs) = app.library_state.selected_songs() {
+                        app.connection
+                            .send(MusingRequest::AddToQueue(songs.to_vec()));
+                        app.library_state.scroll(1);
+                    }
                 }
-            }
-            AppUpdate::FocusRight => {
-                if let Screen::Library = app.screen {
-                    app.library_state.focus_right();
+                Screen::Playlists => {
+                    if let Some(songs) = app.playlists_state.selected_songs() {
+                        app.connection
+                            .send(MusingRequest::AddToQueue(songs.to_vec()));
+                        app.playlists_state.scroll(1);
+                    }
                 }
-            }
-            AppUpdate::AddToQueue => {
-                if let Some(songs) = app.library_state.selected_songs() {
-                    app.connection
-                        .send(MusingRequest::AddToQueue(songs.to_vec()));
-                    app.library_state.scroll(1);
-                }
-            }
+                _ => (),
+            },
             AppUpdate::Play => {
                 if let Some(i) = app.queue_state.unordered_selected() {
                     app.connection
@@ -394,7 +487,7 @@ pub fn update_on_response(app: &mut App, response: MusingResponse) {
                 .list_update(app.queue_state.metadata_to_repr());
         }
         MusingResponse::GroupedSongs(grouped) => app.library_state.update(grouped),
-        MusingResponse::ListSongs(playlists) => (),
+        MusingResponse::ListSongs(playlists) => app.playlists_state.update(playlists),
         MusingResponse::StateDelta(delta) => update_state(app, delta),
         MusingResponse::Update(res) => app.status_msg = Some(res),
     }

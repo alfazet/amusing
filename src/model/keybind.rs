@@ -43,6 +43,7 @@ pub enum Binding {
     ScreenCover,
     ScreenQueue,
     ScreenLibrary,
+    ScreenPlaylists,
     // used to pass typed characters to search
     Other,
 }
@@ -233,6 +234,10 @@ impl Default for Keybind {
         keybind.add_keybind(
             &[KeyEvent::new(KeyCode::Char('3'), Mods::NONE)],
             Binding::ScreenLibrary,
+        );
+        keybind.add_keybind(
+            &[KeyEvent::new(KeyCode::Char('4'), Mods::NONE)],
+            Binding::ScreenPlaylists,
         );
 
         keybind

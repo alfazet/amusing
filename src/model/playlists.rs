@@ -38,9 +38,13 @@ impl PlaylistsChildState {
             .metadata
             .iter()
             .zip(self.group.paths.iter())
-            .map(|(m, path)| {
-                let repr = m.get("tracktitle").unwrap_or(path);
-                unidecode::unidecode(repr)
+            .map(|(m, _)| {
+                let mut repr = String::new();
+                for v in m.values() {
+                    repr += v;
+                }
+
+                unidecode::unidecode(&repr)
             })
             .collect()
     }

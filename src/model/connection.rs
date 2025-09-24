@@ -294,7 +294,7 @@ fn list_songs(
             "kind": "listsongs",
             "playlist": path,
         });
-        write_msg(stream, request);
+        write_msg(stream, request)?;
         let res = read_msg(stream)?;
         if let Some(obj) = res.as_object()
             && let Some(songs) = obj.get("songs")
