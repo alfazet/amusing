@@ -11,6 +11,7 @@ use crate::{
         keybind::Keybind,
         library::LibraryState,
         musing::MusingState,
+        playlists::PlaylistsState,
         queue::QueueState,
         theme::Theme,
     },
@@ -49,6 +50,7 @@ pub struct App {
     pub queue_state: QueueState,
     pub library_state: LibraryState,
     pub cover_art_state: CoverArtState,
+    pub playlists_state: PlaylistsState,
     pub key_events: Vec<KeyEvent>,
     pub status_msg: Option<String>,
     pub searching: bool,
@@ -68,6 +70,8 @@ impl App {
             speed_step,
             library_group_by,
             queue_tags,
+            library_tags,
+            playlist_tags,
         } = config;
         let (tx, rx) = std_chan::channel();
         let connection = Connection::try_new(port, tx.clone())?;
@@ -75,7 +79,8 @@ impl App {
         let screen = Screen::default();
         let musing_state = MusingState::default();
         let queue_state = QueueState::new(queue_tags);
-        let library_state = LibraryState::new(library_group_by);
+        let library_state = LibraryState::new(library_group_by, library_tags);
+        let playlists_state = PlaylistsState::new(playlist_tags);
         let cover_art_state = CoverArtState::try_new(tx.clone())?;
         let key_events = Vec::new();
         let status_msg = None;
@@ -95,6 +100,7 @@ impl App {
             musing_state,
             queue_state,
             library_state,
+            playlists_state,
             cover_art_state,
             key_events,
             status_msg,

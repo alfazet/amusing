@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
@@ -294,12 +295,27 @@ fn render_library_screen(app: &mut App, frame: &mut Frame) {
         .selected_child()
         .map(|child| {
             let group = child.ordered_group();
-            let mut titles = Vec::new();
-            for (meta, path) in group {
-                titles.push(meta.get("tracktitle").unwrap_or(path).to_string());
+            let mut info = Vec::new();
+            for (meta, path) in group.metadata.iter().zip(group.paths.iter()) {
+                let here: &Vec<_> = &app
+                    .library_state
+                    .children_tags
+                    .iter()
+                    .map(|tag| {
+                        meta.get(tag).map(|s| s.to_string()).unwrap_or_else(|| {
+                            if tag == "tracktitle" {
+                                path
+                            } else {
+                                constants::UNKNOWN
+                            }
+                            .to_string()
+                        })
+                    })
+                    .collect();
+                info.push(here.iter().join(" - "));
             }
 
-            titles
+            info
         })
         .unwrap_or_default();
     let songs_block = Block::default()

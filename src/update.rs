@@ -351,6 +351,10 @@ pub fn update_state(app: &mut App, delta: MusingStateDelta) {
         app.musing_state.queue = queue;
         update_queue(app);
     }
+    if let Some(playlists) = delta.playlists {
+        app.musing_state.playlists = playlists;
+        update_playlists(app);
+    }
 }
 
 pub fn update_queue(app: &mut App) {
@@ -373,6 +377,13 @@ pub fn update_library(app: &mut App) {
     ));
 }
 
+pub fn update_playlists(app: &mut App) {
+    app.connection.send(MusingRequest::ListSongs(
+        app.musing_state.playlists.to_vec(),
+        app.playlists_state.children_tags.to_vec(),
+    ));
+}
+
 pub fn update_on_response(app: &mut App, response: MusingResponse) {
     match response {
         MusingResponse::Error(e) => app.status_msg = Some(format!("connection error: {}", e)),
@@ -383,6 +394,7 @@ pub fn update_on_response(app: &mut App, response: MusingResponse) {
                 .list_update(app.queue_state.metadata_to_repr());
         }
         MusingResponse::GroupedSongs(grouped) => app.library_state.update(grouped),
+        MusingResponse::ListSongs(playlists) => (),
         MusingResponse::StateDelta(delta) => update_state(app, delta),
         MusingResponse::Update(res) => app.status_msg = Some(res),
     }

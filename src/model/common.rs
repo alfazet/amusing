@@ -40,15 +40,25 @@ impl SongGroup {
         res
     }
 
-    pub fn new(
+    pub fn from_slice<T: AsRef<str> + Into<String>>(
         metadata_keys: &[String],
         metadata_values: &[Vec<Option<String>>],
-        paths: &[String],
+        paths: &[T],
     ) -> Self {
         let metadata = Self::pair_values(metadata_keys, metadata_values);
         Self {
             metadata,
-            paths: paths.to_vec(),
+            paths: paths.iter().map(|p| p.as_ref().to_string()).collect(),
+        }
+    }
+
+    pub fn from_map<T: AsRef<str> + Into<String>>(
+        metadata: &[HashMap<String, String>],
+        paths: &[T],
+    ) -> Self {
+        Self {
+            metadata: metadata.to_vec(),
+            paths: paths.iter().map(|p| p.as_ref().to_string()).collect(),
         }
     }
 

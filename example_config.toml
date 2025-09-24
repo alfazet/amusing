@@ -24,6 +24,14 @@ library_group_by = ["albumartist", "album"]
 # for the list of supported tags see above
 queue_tags = ["tracktitle", "artist", "album"]
 
+# tags that will be displayed for each song in the library
+# for the list of supported tags see above
+library_tags = ["tracktitle"]
+
+# tags that will be displayed for each song in the playlists screen
+# for the list of supported tags see above
+playlist_tags = ["artist", "tracktitle"]
+
 # theme configs
 # each of the configurable UI elements can have its
 # foreground color (fg) and background color (bg) set,

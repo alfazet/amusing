@@ -32,6 +32,7 @@ pub struct MusingState {
     pub speed: u64,
     pub gapless: bool,
     pub queue: Vec<MusingSong>,
+    pub playlists: Vec<String>,
     pub current: Option<u64>,
     pub cover_art: Option<String>, // base64 encoded
     pub timer: Option<(u64, u64)>,
@@ -45,6 +46,7 @@ pub struct MusingStateDelta {
     pub speed: Option<u64>,
     pub gapless: Option<bool>,
     pub queue: Option<Vec<MusingSong>>,
+    pub playlists: Option<Vec<String>>,
     pub current: Option<Option<u64>>,
     pub cover_art: Option<Option<String>>,
     pub timer: Option<(u64, u64)>,
@@ -151,6 +153,13 @@ impl TryFrom<Value> for MusingStateDelta {
                     .collect::<Option<_>>()
             })
         });
+        let playlists = object.remove("playlists").and_then(|x| {
+            x.as_array().and_then(|v| {
+                v.iter()
+                    .map(|s| s.as_str().map(|s| s.to_string()))
+                    .collect::<Option<_>>()
+            })
+        });
         let current = object
             .remove("current")
             .map(|x| if x.is_null() { None } else { x.as_u64() });
@@ -184,6 +193,7 @@ impl TryFrom<Value> for MusingStateDelta {
             speed,
             gapless,
             queue,
+            playlists,
             current,
             cover_art,
             timer,

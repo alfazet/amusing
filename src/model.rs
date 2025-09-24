@@ -4,6 +4,7 @@ pub mod cover_art;
 pub mod keybind;
 pub mod library;
 pub mod musing;
+pub mod playlists;
 pub mod queue;
 pub mod search;
 pub mod theme;

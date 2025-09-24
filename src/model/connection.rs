@@ -18,6 +18,7 @@ use crate::{
 pub enum MusingRequest {
     Metadata(Vec<String>, Option<Vec<String>>),
     GroupedSongs(Vec<String>, Vec<String>),
+    ListSongs(Vec<String>, Vec<String>),
     StateDelta,
     Seek(i64),
     Speed(i16),
@@ -34,6 +35,7 @@ pub enum MusingResponse {
     Error(String),
     Metadata(Vec<HashMap<String, String>>),
     GroupedSongs(HashMap<Vec<String>, SongGroup>),
+    ListSongs(HashMap<String, SongGroup>),
     StateDelta(MusingStateDelta),
     Update(String),
 }
@@ -79,13 +81,21 @@ fn run(
 
     while let Ok(request) = rx.recv() {
         let _ = match request {
-            MusingRequest::Metadata(paths, tags) => match metadata(&mut stream, paths, tags) {
-                Ok(metadata) => tx.send(Resp(MusingResponse::Metadata(metadata))),
-                Err(e) => tx.send(Resp(MusingResponse::Error(e.to_string()))),
-            },
+            MusingRequest::Metadata(paths, tags) => {
+                match metadata(&mut stream, &paths, tags.as_deref()) {
+                    Ok(metadata) => tx.send(Resp(MusingResponse::Metadata(metadata))),
+                    Err(e) => tx.send(Resp(MusingResponse::Error(e.to_string()))),
+                }
+            }
             MusingRequest::GroupedSongs(group_by, children_tags) => {
                 match grouped_songs(&mut stream, group_by, children_tags) {
                     Ok(grouped) => tx.send(Resp(MusingResponse::GroupedSongs(grouped))),
+                    Err(e) => tx.send(Resp(MusingResponse::Error(e.to_string()))),
+                }
+            }
+            MusingRequest::ListSongs(playlist_paths, tags) => {
+                match list_songs(&mut stream, playlist_paths, tags) {
+                    Ok(playlists) => tx.send(Resp(MusingResponse::ListSongs(playlists))),
                     Err(e) => tx.send(Resp(MusingResponse::Error(e.to_string()))),
                 }
             }
@@ -165,12 +175,14 @@ fn write_msg(stream: &mut BufReader<TcpStream>, msg: JsonValue) -> Result<()> {
     Ok(())
 }
 
-pub fn metadata(
+fn metadata<T: AsRef<str> + Into<String>, S: AsRef<str> + Into<String>>(
     stream: &mut BufReader<TcpStream>,
-    paths: Vec<String>,
-    tags: Option<Vec<String>>,
+    paths: &[T],
+    tags: Option<&[S]>,
 ) -> Result<Vec<HashMap<String, String>>> {
     let mut request = Map::new();
+    let paths: Vec<String> = paths.iter().map(|p| p.as_ref().into()).collect();
+    let tags: Option<Vec<String>> = tags.map(|t| t.iter().map(|x| x.as_ref().into()).collect());
     request.insert("kind".into(), "metadata".into());
     request.insert("paths".into(), paths.into());
     let _ = match tags {
@@ -200,7 +212,7 @@ pub fn metadata(
     }
 }
 
-pub fn grouped_songs(
+fn grouped_songs(
     stream: &mut BufReader<TcpStream>,
     group_by: Vec<String>,
     children_tags: Vec<String>,
@@ -262,7 +274,7 @@ pub fn grouped_songs(
                 .and_modify(|group: &mut SongGroup| {
                     group.add_songs(&children_tags, &song_values, &paths)
                 })
-                .or_insert(SongGroup::new(&children_tags, &song_values, &paths));
+                .or_insert(SongGroup::from_slice(&children_tags, &song_values, &paths));
         }
 
         Ok(grouped)
@@ -271,7 +283,35 @@ pub fn grouped_songs(
     }
 }
 
-pub fn state_delta(stream: &mut BufReader<TcpStream>) -> Result<MusingStateDelta> {
+fn list_songs(
+    stream: &mut BufReader<TcpStream>,
+    paths: Vec<String>,
+    tags: Vec<String>,
+) -> Result<HashMap<String, SongGroup>> {
+    let mut playlists = HashMap::new();
+    for path in paths {
+        let request = json!({
+            "kind": "listsongs",
+            "playlist": path,
+        });
+        write_msg(stream, request);
+        let res = read_msg(stream)?;
+        if let Some(obj) = res.as_object()
+            && let Some(songs) = obj.get("songs")
+            && let Some(songs) = songs.as_array()
+        {
+            let songs: Vec<_> = songs.iter().filter_map(|s| s.as_str()).collect();
+            let metadata = metadata(stream, &songs, Some(tags.as_ref()))?;
+            let group = SongGroup::from_map(&metadata, &songs);
+            playlists.insert(path.to_string(), group);
+        }
+    }
+
+    log::error!("{:?}", playlists);
+    Ok(playlists)
+}
+
+fn state_delta(stream: &mut BufReader<TcpStream>) -> Result<MusingStateDelta> {
     let request = json!({
         "kind": "state",
     });
@@ -281,7 +321,7 @@ pub fn state_delta(stream: &mut BufReader<TcpStream>) -> Result<MusingStateDelta
     MusingStateDelta::try_from(res)
 }
 
-pub fn seek(stream: &mut BufReader<TcpStream>, seconds: i64) -> Result<()> {
+fn seek(stream: &mut BufReader<TcpStream>, seconds: i64) -> Result<()> {
     let request = json!({
         "kind": "seek",
         "seconds": seconds,
@@ -291,7 +331,7 @@ pub fn seek(stream: &mut BufReader<TcpStream>, seconds: i64) -> Result<()> {
     read_msg(stream).map(|_| ())
 }
 
-pub fn speed(stream: &mut BufReader<TcpStream>, delta: i16) -> Result<()> {
+fn speed(stream: &mut BufReader<TcpStream>, delta: i16) -> Result<()> {
     let request = json!({
         "kind": "speed",
         "delta": delta,
@@ -301,7 +341,7 @@ pub fn speed(stream: &mut BufReader<TcpStream>, delta: i16) -> Result<()> {
     read_msg(stream).map(|_| ())
 }
 
-pub fn volume(stream: &mut BufReader<TcpStream>, delta: i8) -> Result<()> {
+fn volume(stream: &mut BufReader<TcpStream>, delta: i8) -> Result<()> {
     let request = json!({
         "kind": "volume",
         "delta": delta,
@@ -311,14 +351,14 @@ pub fn volume(stream: &mut BufReader<TcpStream>, delta: i8) -> Result<()> {
     read_msg(stream).map(|_| ())
 }
 
-pub fn add_to_queue(stream: &mut BufReader<TcpStream>, paths: Vec<String>) -> Result<()> {
+fn add_to_queue(stream: &mut BufReader<TcpStream>, paths: Vec<String>) -> Result<()> {
     let request = json!({"kind": "addqueue", "paths": paths});
     write_msg(stream, request)?;
 
     read_msg(stream).map(|_| ())
 }
 
-pub fn play(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
+fn play(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
     let request = json!({
         "kind": "play",
         "id": id,
@@ -328,7 +368,7 @@ pub fn play(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
     read_msg(stream).map(|_| ())
 }
 
-pub fn remove(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
+fn remove(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
     let request = json!({
         "kind": "removequeue",
         "ids": [id],
@@ -338,7 +378,7 @@ pub fn remove(stream: &mut BufReader<TcpStream>, id: u64) -> Result<()> {
     read_msg(stream).map(|_| ())
 }
 
-pub fn update(stream: &mut BufReader<TcpStream>) -> Result<String> {
+fn update(stream: &mut BufReader<TcpStream>) -> Result<String> {
     let request = json!({ "kind": "update" });
     write_msg(stream, request)?;
 
@@ -367,7 +407,7 @@ pub fn update(stream: &mut BufReader<TcpStream>) -> Result<String> {
 
 // a convenience function for sending requests that have neither
 // any additional arguments nor a meaningful positive response
-pub fn other(stream: &mut BufReader<TcpStream>, kind: String) -> Result<()> {
+fn other(stream: &mut BufReader<TcpStream>, kind: String) -> Result<()> {
     let request = json!({
         "kind": kind,
     });

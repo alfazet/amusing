@@ -28,6 +28,8 @@ pub struct Config {
     pub speed_step: i16,
     pub library_group_by: Vec<String>,
     pub queue_tags: Vec<String>,
+    pub library_tags: Vec<String>,
+    pub playlist_tags: Vec<String>,
 }
 
 impl Default for Config {
@@ -44,6 +46,14 @@ impl Default for Config {
                 .map(|s| s.to_string())
                 .collect(),
             queue_tags: constants::DEFAULT_QUEUE_TAGS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            library_tags: constants::DEFAULT_LIBRARY_TAGS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            playlist_tags: constants::DEFAULT_PLAYLIST_TAGS
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
@@ -90,6 +100,18 @@ impl Config {
                 }
                 ("queue_tags", TomlValue::Array(queue_tags)) => {
                     config.queue_tags = queue_tags
+                        .iter()
+                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect();
+                }
+                ("library_tags", TomlValue::Array(library_tags)) => {
+                    config.library_tags = library_tags
+                        .iter()
+                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect();
+                }
+                ("playlist_tags", TomlValue::Array(playlist_tags)) => {
+                    config.playlist_tags = playlist_tags
                         .iter()
                         .filter_map(|s| s.as_str().map(|s| s.to_string()))
                         .collect();

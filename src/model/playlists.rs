@@ -7,24 +7,23 @@ use crate::model::{
 };
 
 #[derive(Debug, Default)]
-pub struct LibraryChildState {
+pub struct PlaylistsChildState {
     pub state: TableState,
-    pub id_comb: Vec<String>, // the combination of tags that identifies these songs
+    pub path: String,
     pub group: SongGroup,
     pub search: Search,
 }
 
-#[derive(Debug)]
-pub struct LibraryState {
+#[derive(Default, Debug)]
+pub struct PlaylistsState {
     pub state: TableState,
     pub focused_part: FocusedPart,
-    pub group_by_tags: Vec<String>,
     pub children_tags: Vec<String>,
-    pub children: Vec<LibraryChildState>, // grouped collections of songs
+    pub children: Vec<PlaylistsChildState>, // playlists
     pub search: Search,
 }
 
-impl LibraryChildState {
+impl PlaylistsChildState {
     pub fn search_on(&mut self) {
         self.state.select_first();
         self.search.on(self.songs_to_repr());
@@ -59,7 +58,7 @@ impl LibraryChildState {
     }
 }
 
-impl Scroll for LibraryState {
+impl Scroll for PlaylistsState {
     fn scroll(&mut self, delta: i32) {
         if self.children.is_empty() {
             return;
@@ -122,12 +121,11 @@ impl Scroll for LibraryState {
     }
 }
 
-impl LibraryState {
-    pub fn new(group_by_tags: Vec<String>, children_tags: Vec<String>) -> Self {
+impl PlaylistsState {
+    pub fn new(children_tags: Vec<String>) -> Self {
         Self {
             state: TableState::default(),
             focused_part: FocusedPart::default(),
-            group_by_tags,
             children_tags,
             children: Vec::new(),
             search: Search::default(),
@@ -146,31 +144,23 @@ impl LibraryState {
     pub fn children_to_repr(&self) -> Vec<String> {
         self.children
             .iter()
-            .map(|child| {
-                let mut repr = String::new();
-                for value in &child.id_comb {
-                    repr += value;
-                    repr.push(' ');
-                }
-
-                unidecode::unidecode(&repr)
-            })
+            .map(|child| unidecode::unidecode(&child.path))
             .collect()
     }
 
-    pub fn update(&mut self, grouped_songs: HashMap<Vec<String>, SongGroup>) {
+    pub fn update(&mut self, playlists: HashMap<String, SongGroup>) {
         self.children.clear();
-        for (id_comb, group) in grouped_songs {
-            let child = LibraryChildState {
+        for (path, group) in playlists {
+            let child = PlaylistsChildState {
                 state: TableState::default(),
-                id_comb,
+                path,
                 group,
                 search: Search::default(),
             };
             self.children.push(child);
         }
         self.children
-            .sort_unstable_by(|lhs, rhs| (lhs.id_comb).cmp(&rhs.id_comb));
+            .sort_unstable_by(|lhs, rhs| (lhs.path).cmp(&rhs.path));
         if self.children.is_empty() {
             self.state.select(None);
         } else {
@@ -183,11 +173,11 @@ impl LibraryState {
         self.focus_left();
     }
 
-    pub fn selected_child(&self) -> Option<&LibraryChildState> {
+    pub fn selected_child(&self) -> Option<&PlaylistsChildState> {
         self.unordered_selected().map(|i| &self.children[i])
     }
 
-    pub fn selected_child_mut(&mut self) -> Option<&mut LibraryChildState> {
+    pub fn selected_child_mut(&mut self) -> Option<&mut PlaylistsChildState> {
         self.unordered_selected().map(|i| &mut self.children[i])
     }
 
@@ -222,7 +212,7 @@ impl LibraryState {
         }
     }
 
-    pub fn ordered_children(&self) -> Vec<&LibraryChildState> {
+    pub fn ordered_children(&self) -> Vec<&PlaylistsChildState> {
         let search = &self.search;
         match search.state {
             SearchState::Off => self.children.iter().collect(),
